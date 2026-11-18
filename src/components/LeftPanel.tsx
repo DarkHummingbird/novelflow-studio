@@ -30,6 +30,8 @@ export interface LeftPanelProps {
   onAnalyze: () => void;
   running: boolean;
   hasBlueprint: boolean;
+  canRun: boolean;
+  onConfigure: () => void;
   reviewWithLLM: boolean;
   onReviewWithLLM: (v: boolean) => void;
   maxRevision: number;
@@ -63,6 +65,8 @@ export function LeftPanel(props: LeftPanelProps) {
     onAnalyze,
     running,
     hasBlueprint,
+    canRun,
+    onConfigure,
     reviewWithLLM,
     onReviewWithLLM,
     maxRevision,
@@ -116,6 +120,24 @@ export function LeftPanel(props: LeftPanelProps) {
             录屏抽帧
           </button>
         </div>
+
+        {!canRun && (
+          <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-2.5">
+            <span className="mt-0.5 text-[11px] font-bold text-amber-900">未配置模型</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] leading-snug text-amber-900/85">
+                续写与蓝图生成需要真实模型。下面的「卡点前文」和走向指令可以随便填，但点生成前需要先接入模型。
+              </p>
+              <button
+                type="button"
+                onClick={onConfigure}
+                className="mt-1.5 rounded-lg bg-amber-600 px-2 py-1 text-[10px] font-bold text-white hover:bg-amber-500"
+              >
+                配置模型 API
+              </button>
+            </div>
+          </div>
+        )}
 
         {sourceType === 'fast_screen_record' && (
           <div className="space-y-1.5 rounded-xl border border-indigo-200 bg-indigo-50/50 p-2.5">
@@ -337,8 +359,9 @@ export function LeftPanel(props: LeftPanelProps) {
         <button
           type="button"
           onClick={onAnalyze}
-          disabled={running}
-          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-[11px] font-bold text-zinc-950 shadow-sm transition-colors hover:bg-amber-400 disabled:opacity-40"
+          disabled={running || !canRun}
+          title={canRun ? undefined : '需要先配置模型 API'}
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-[11px] font-bold text-zinc-950 shadow-sm transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ScanLine className="h-3.5 w-3.5" />
           {hasBlueprint ? '重新生成四拍蓝图' : '生成商业三段式细纲'}

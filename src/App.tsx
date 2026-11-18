@@ -9,6 +9,7 @@ import { DEFAULT_API_CONFIG, DEFAULT_DIRECTION, SAMPLE_TEXT } from './config/pre
 import { isApiConfigured, pingLLM } from './lib/api';
 import { buildContractJson, buildMarkdown, buildPlainText, copyText, downloadText, safeFilename } from './lib/export';
 import { buildArchive, parseArchive, planImport } from './lib/archive';
+import { buildShowcase } from './config/showcase';
 import { uuid } from './lib/idb';
 import { describeSource, rewriteOneSegment, runPipeline, type PipelineHooks } from './lib/pipeline';
 import { useProjectStore } from './hooks/useProjectStore';
@@ -137,6 +138,13 @@ export default function App() {
   const bootstrapped = useRef(false);
 
   const apiReady = isApiConfigured(apiConfig);
+  // 只有显式带 ?sim=1 时才允许无模型的仿真演示（内部测试用，普通用户看不到入口）
+  const simAllowed = useMemo(
+    () => new URLSearchParams(window.location.search).get('sim') === '1',
+    [],
+  );
+  const canRun = apiReady || simAllowed;
+  const showcase = useMemo(() => buildShowcase(), []);
   const diagnostics = useMemo(() => describeSource(sourceText), [sourceText]);
   const producedWords = segments.reduce((n, s) => n + s.word_count, 0);
 
@@ -144,6 +152,12 @@ export default function App() {
     setToast({ kind, text });
     window.setTimeout(() => setToast(null), 5200);
   }, []);
+
+  const requireModel = useCallback(() => {
+    notify('err', '续写需要真实模型：请先在右上角「配置 API」接入模型。');
+    setApiTest({ state: 'idle', message: '' });
+    setApiModalOpen(true);
+  }, [notify]);
 
   /* --------------------------------------------------------- 状态打包 */
   const buildState = useCallback(
@@ -309,6 +323,10 @@ export default function App() {
   const runPipelineFlow = useCallback(
     async (opts: { planOnly: boolean; reuse?: boolean }) => {
       if (isRunning) return;
+      if (!canRun) {
+        requireModel();
+        return;
+      }
       if (!sourceText.trim()) {
         notify('err', '请先粘贴卡点前文，或点击“载入 4,200 字卡点样本”。');
         return;
@@ -340,6 +358,7 @@ export default function App() {
             reviewWithLLM,
             maxRevision,
             planOnly: opts.planOnly,
+            allowSimulation: simAllowed,
             existing: reuse ? { agent1: agent1 ?? undefined, agent2: agent2 ?? undefined } : undefined,
             signal: controller.signal,
           },
@@ -381,6 +400,9 @@ export default function App() {
     },
     [
       isRunning,
+      canRun,
+      requireModel,
+      simAllowed,
       sourceText,
       agent1,
       agent2,
@@ -436,6 +458,10 @@ export default function App() {
 
   const handleRegenerate = useCallback(async () => {
     if (isRunning) return;
+    if (!canRun) {
+      requireModel();
+      return;
+    }
     if (!agent1) {
       void runPipelineFlow({ planOnly: true });
       return;
@@ -457,6 +483,7 @@ export default function App() {
           reviewWithLLM,
           maxRevision,
           planOnly: true,
+          allowSimulation: simAllowed,
           existing: { agent1 },
           signal: controller.signal,
         },
@@ -480,6 +507,10 @@ export default function App() {
   const handleRewrite = useCallback(
     async (index: number) => {
       if (!agent1 || !agent2 || isRewriting) return;
+      if (!canRun) {
+        requireModel();
+        return;
+      }
       await autoSnapshot(`重写第 ${index + 1} 段前`);
       setIsRewriting(true);
       const controller = new AbortController();
@@ -754,6 +785,8 @@ export default function App() {
       agent1={agent1}
       diagnostics={diagnostics}
       onLoadSample={handleLoadSample}
+      canRun={canRun}
+      onConfigure={requireModel}
       onAnalyze={() => void handlePlan()}
       running={isRunning}
       hasBlueprint={Boolean(agent2)}
@@ -778,6 +811,7 @@ export default function App() {
         onStop={handleStop}
         onReset={handleReset}
         apiConfigured={apiReady}
+        canRun={canRun}
         apiModel={apiConfig.model}
         onOpenApi={() => {
           setApiTest({ state: 'idle', message: '' });
@@ -839,6 +873,9 @@ export default function App() {
             onExportJson={exportJson}
             onCopy={() => void handleCopy()}
             copied={copied}
+            canRun={canRun}
+            onConfigure={requireModel}
+            showcase={showcase}
           />
         </div>
       </main>
@@ -850,7 +887,7 @@ export default function App() {
         </span>
         <span>
           前文 {diagnostics.chars.toLocaleString()} 字 · 续写 {producedWords.toLocaleString()} 字 ·{' '}
-          {apiReady ? '真实模型' : '仿真引擎'}
+          {apiReady ? '真实模型' : '未配置模型'}
         </span>
       </footer>
 

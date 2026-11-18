@@ -10,7 +10,9 @@ import os from 'node:os';
 import { launch } from './lib/cdp.mjs';
 
 const target = process.argv[2] ?? 'dist/novelflow-studio-standalone.html';
-const url = target.startsWith('http') ? target : `file://${path.resolve(target)}`;
+const baseUrl = target.startsWith('http') ? target : `file://${path.resolve(target)}`;
+// 无模型的结构演示需要显式开关（产品路径默认关闭仿真）
+const url = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}sim=1`;
 
 const PARAS = [
   '顾砚舟把第{n}份股权代持协议推到桌子中央，指尖压住纸角，一直没有松开。',

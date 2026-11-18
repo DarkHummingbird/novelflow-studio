@@ -266,6 +266,10 @@ export async function runPipeline(input: RunInput, options: PipelineOptions, hoo
   let agent2!: Agent2Payload;
   let memoryBanner = '';
 
+  if (!live && !options.allowSimulation) {
+    throw new Error('未配置模型 API：续写需要真实模型。请在右上角「配置 API」接入模型；结构演示仅开发者可用（?sim=1）。');
+  }
+
   try {
     hooks.onEngine(live ? 'live' : 'simulation');
     log('system', 'info', live ? `引擎：真实模型 ${options.api.model}` : '引擎：内置仿真引擎（未配置 API Key）');

@@ -7,7 +7,9 @@ import os from 'node:os';
 import { launch, sleep } from './lib/cdp.mjs';
 
 const target = process.argv[2] ?? 'dist/novelflow-studio-standalone.html';
-const url = target.startsWith('http') ? target : `file://${path.resolve(target)}`;
+const baseUrl = target.startsWith('http') ? target : `file://${path.resolve(target)}`;
+// 无模型的结构演示需要显式开关（产品路径默认关闭仿真）
+const url = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}sim=1`;
 const downloadDir = await mkdtemp(path.join(os.tmpdir(), 'nf-dl-'));
 
 const app = await launch({ url, port: 9333 });

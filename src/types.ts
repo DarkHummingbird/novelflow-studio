@@ -185,6 +185,8 @@ export interface PipelineOptions {
   planOnly?: boolean;
   /** 复用已确认的 Agent1/Agent2 载荷：跳过规划，直接用（可能被用户编辑过的）蓝图写作 */
   existing?: { agent1?: Agent1Payload; agent2?: Agent2Payload };
+  /** 仅测试/演示（?sim=1）才允许在无模型时用仿真引擎；产品路径下必须为 false */
+  allowSimulation?: boolean;
 }
 
 export interface ProjectState {

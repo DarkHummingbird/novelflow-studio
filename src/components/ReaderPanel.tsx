@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { AI_CLICHES } from '../config/presets';
 import { gateScore } from '../lib/gates';
+import type { ShowcaseData } from '../config/showcase';
 import type { Agent1Payload, LogEntry, ProgressState, SegmentDraft, WorkspaceMode } from '../types';
 import { Badge, EmptyState, GateDots, GateRows, IconButton, ProgressBar } from './ui';
 
@@ -50,6 +51,9 @@ export interface ReaderPanelProps {
   onExportJson: () => void;
   onCopy: () => void;
   copied: boolean;
+  canRun: boolean;
+  onConfigure: () => void;
+  showcase: ShowcaseData | null;
 }
 
 const CLICHE_SET = new Set(AI_CLICHES);
@@ -129,6 +133,9 @@ export function ReaderPanel(props: ReaderPanelProps) {
     onExportJson,
     onCopy,
     copied,
+    canRun,
+    onConfigure,
+    showcase,
   } = props;
 
   const produced = segments.reduce((n, s) => n + s.word_count, 0);
@@ -263,6 +270,8 @@ export function ReaderPanel(props: ReaderPanelProps) {
                 ))}
               </div>
             </div>
+          ) : !canRun && showcase ? (
+            <ShowcaseView data={showcase} onConfigure={onConfigure} />
           ) : (
             <EmptyState
               icon={<BookOpen className="h-8 w-8" />}
@@ -305,7 +314,7 @@ export function ReaderPanel(props: ReaderPanelProps) {
                       {segment.gate && (
                         <span className="font-mono text-[10px] text-zinc-500">评分 {gateScore(segment.gate)}</span>
                       )}
-                      {!isRunning && segment.status !== 'pending' && (
+                      {canRun && !isRunning && segment.status !== 'pending' && (
                         <button
                           type="button"
                           onClick={() => onStartRewrite(isRewritingThis ? null : idx)}
@@ -497,6 +506,70 @@ export function ReaderPanel(props: ReaderPanelProps) {
         )}
       </div>
     </section>
+  );
+}
+
+function ShowcaseView({ data, onConfigure }: { data: ShowcaseData; onConfigure: () => void }) {
+  const total = data.segments.reduce((n, s) => n + s.word_count, 0);
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold text-amber-950">
+            静态示例 · 内置样本的已完成稿（{total.toLocaleString()} 字）
+          </p>
+          <p className="mt-0.5 text-[10px] leading-relaxed text-amber-900/80">
+            这是预先跑好的结果，<strong>不是本次生成</strong>。下方的门禁 PASS/FAIL 由真实门禁引擎现算，
+            与你自己跑出来的判定规则完全一致。
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onConfigure}
+          className="shrink-0 rounded-lg bg-amber-600 px-2.5 py-1.5 text-[10px] font-bold text-white hover:bg-amber-500"
+        >
+          配置模型，生成我的续写
+        </button>
+      </div>
+
+      {data.segments.map((segment) => (
+        <article key={segment.segment_index} className="rounded-2xl border border-line bg-white p-4 shadow-sm">
+          <header className="flex flex-wrap items-start justify-between gap-2 border-b border-line/70 pb-2.5">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge tone="amber">{segment.segment_role}</Badge>
+                <Badge tone="neutral">示例</Badge>
+                <Badge tone={segment.gate?.status === 'PASS' ? 'emerald' : 'rose'}>
+                  {segment.gate?.status ?? '未质检'}
+                </Badge>
+              </div>
+              <h3 className="mt-1 font-serif text-base font-bold text-ink">{segment.title}</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              {segment.gate && <GateDots gate={segment.gate} />}
+              <span className="rounded-lg border border-line bg-paper px-1.5 py-0.5 font-mono text-[10px] font-semibold text-zinc-700">
+                {segment.word_count.toLocaleString()} 字
+              </span>
+            </div>
+          </header>
+          <div className="nf-prose mt-3 font-serif text-[14px] leading-[1.95] text-ink">
+            {segment.text.split(/\n{2,}/).map((para, idx) => (
+              <p key={idx}>{para}</p>
+            ))}
+          </div>
+          {segment.segment_index === data.segments.length && segment.gate?.golden_quote_extracted && (
+            <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/80 p-2.5">
+              <Quote className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+              <div className="text-[11px] text-amber-950">
+                <span className="font-bold">终局金句：</span>
+                <span className="font-serif italic">{segment.gate.golden_quote_extracted}</span>
+              </div>
+            </div>
+          )}
+          {segment.gate && <GateDetail gate={segment.gate} />}
+        </article>
+      ))}
+    </div>
   );
 }
 

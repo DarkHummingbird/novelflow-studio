@@ -28,7 +28,7 @@
 
 | 方式 | 命令 / 操作 | 能用到什么 |
 | --- | --- | --- |
-| **0. 在线试用** | 打开 https://darkhummingbird.github.io/novelflow-studio/ | 全部创作流程（草稿箱在你自己浏览器里） |
+| **0. 在线试用** | 打开 https://darkhummingbird.github.io/novelflow-studio/ | 可浏览界面与一份**静态示例成品**；生成需要先配置模型（草稿箱在你自己的浏览器里） |
 | **A. 零安装** | 双击 `dist/novelflow-studio-standalone.html` | 全部创作流程。单文件 450 KB，无网络依赖 |
 | **B. 完整能力（推荐）** | `npm install` → `npm run build:standalone` → `npm start`，打开 http://127.0.0.1:4173/ | 完整能力 + 草稿箱自动保存 / 版本快照回滚 |
 | **C. 开发模式** | `npm install` → `npm run dev` | 热更新，改代码调试 |
@@ -37,11 +37,13 @@
 
 **第一次使用**：左栏点「载入 3,364 字卡点样本」→ 点「生成商业三段式细纲」→ 中栏逐拍检查/修改→ 点「确认蓝图并启动主笔续写」。
 
-**没有 API Key 也能跑完整个流程**：内置仿真引擎会按 Story Bible 与四拍细纲现场拼装正文，界面上每一段都会标注来源为「仿真引擎」，不会伪装成模型输出。
+**没有 API Key 时不能生成正文**。产品路径下，未配置模型时续写按钮直接置灰，首页只展示一份**预先跑好的静态示例成品**（含真实门禁 PASS/FAIL 与门禁报告），并引导你去配置模型。
+
+仿真引擎（模板拼装）仍然保留在代码里，但**只作为测试与结构演示夹具**，必须显式加 `?sim=1` 才会启用，普通入口不暴露——避免把模板稿误当成模型水平。
 
 ## 3. 模型接入（BYOK）
 
-右上角「仿真引擎 · 配置 API」→ 选厂商模板 → 填 Key → 测试连通性 → 保存。
+右上角「未配置模型 · 配置 API」→ 选厂商模板 → 填 Key → 测试连通性 → 保存。
 
 - 支持 **Google Gemini 原生协议**（真 SSE 流式）与 **OpenAI 兼容协议**（DeepSeek / 豆包 / 通义千问等）。
 - Key 默认只写 `sessionStorage`（关标签页即失效）；勾选「长期保存」才写 `localStorage`。浏览器端没有真正的密钥保护，共用电脑请勿勾选。
@@ -100,7 +102,7 @@
 
 ```bash
 npm run typecheck         # TS 严格模式，0 error
-npm test                  # 45 个测试（文本引擎/路由/门禁/归一化/仿真/导出/归档/API 客户端/真实模型契约）
+npm test                  # 48 个测试（文本引擎/路由/门禁/归一化/仿真/导出/归档/API 客户端/真实模型契约/无模型门禁）
 npm run build:standalone  # 生产构建 + 单文件内联
 npm run smoke             # 标准流程冒烟：蓝图→续写→局部重写→架构师→门禁报告→四种导出→归档→刷新恢复
 npm run smoke:durability  # 持久化专项：刚改完就刷新，验证应急快照生效
@@ -133,7 +135,7 @@ src/
             api.ts（Gemini/OpenAI，SSE 流式、重试、超时、错误映射）
             normalize.ts（上游载荷归一化，模型说谎一律纠正）
             pipeline.ts（Agent1→4 编排、返工循环、局部重写）
-            simulate.ts（离线仿真引擎）、idb.ts（草稿箱）、export.ts（导出）
+            simulate.ts（仿真夹具，仅测试/`?sim=1`）、idb.ts（草稿箱）、export.ts（导出）
   components/ TopBar / LeftPanel / BlueprintPanel / ReaderPanel / Modals / ui
   hooks/    useProjectStore.ts
 tests/      core.test.ts、api.test.ts
@@ -143,7 +145,7 @@ docs/       PRD-TRACE.md（PRD → 代码映射）、USER-SCENARIOS.md（用户�
 
 ## 9. 能力边界（诚实版）
 
-**已实现**：双模输入（文本直入 + 录屏演示）、三档体量路由、六诱饵分类、Story Bible、四拍可编辑蓝图、滑动窗口撰写、微步长接力、六道确定性门禁 + 返工、单段局部重写、双视图、Agent 载荷检视、BYOK 多协议 + 连通性探测、IndexedDB 多项目 / 快照 / 回滚、Markdown / TXT / 契约 JSON 导出、离线仿真兜底。
+**已实现**：双模输入（文本直入 + 录屏演示）、三档体量路由、六诱饵分类、Story Bible、四拍可编辑蓝图、滑动窗口撰写、微步长接力、六道确定性门禁 + 返工、单段局部重写、双视图、Agent 载荷检视、BYOK 多协议 + 连通性探测、IndexedDB 多项目 / 快照 / 回滚、Markdown / TXT / 契约 JSON 导出。**无模型时不生成正文**，只展示静态示例；仿真引擎仅作测试夹具（`?sim=1`）。
 
 **未实现（原设计在 v5.0）**：
 

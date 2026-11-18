@@ -41,6 +41,7 @@ export interface TopBarProps {
   onStop: () => void;
   onReset: () => void;
   apiConfigured: boolean;
+  canRun: boolean;
   apiModel: string;
   onOpenApi: () => void;
   onOpenProjects: () => void;
@@ -61,6 +62,7 @@ export function TopBar(props: TopBarProps) {
     onStop,
     onReset,
     apiConfigured,
+    canRun,
     apiModel,
     onOpenApi,
     onOpenProjects,
@@ -161,7 +163,7 @@ export function TopBar(props: TopBarProps) {
           >
             <Settings className={`h-3.5 w-3.5 ${apiConfigured ? 'text-emerald-600' : 'text-zinc-500'}`} />
             <span className="hidden max-w-[150px] truncate sm:inline">
-              {apiConfigured ? `真实模型 · ${apiModel}` : '仿真引擎 · 配置 API'}
+              {apiConfigured ? `真实模型 · ${apiModel}` : '未配置模型 · 配置 API'}
             </span>
             <span className="sm:hidden">API</span>
           </button>
@@ -179,7 +181,9 @@ export function TopBar(props: TopBarProps) {
             <button
               type="button"
               onClick={onRun}
-              className="flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm transition-colors hover:bg-zinc-800"
+              disabled={!canRun}
+              title={canRun ? '粘贴卡点前文后一键跑完整流水线' : '需要先配置模型 API'}
+              className="flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Zap className="h-3.5 w-3.5 fill-current text-amber-400" />
               <span>一键全自动续写</span>
@@ -189,8 +193,8 @@ export function TopBar(props: TopBarProps) {
           <button
             type="button"
             onClick={onPlan}
-            disabled={isRunning}
-            title="仅生成/重推四拍蓝图（不写正文）"
+            disabled={isRunning || !canRun}
+            title={canRun ? '仅生成/重推四拍蓝图（不写正文）' : '需要先配置模型 API'}
             className="hidden items-center gap-1 rounded-xl border border-line bg-white px-2 py-1.5 text-[11px] font-semibold text-zinc-700 hover:border-line-strong disabled:opacity-40 lg:flex"
           >
             <Sparkles className="h-3.5 w-3.5 text-amber-600" />
