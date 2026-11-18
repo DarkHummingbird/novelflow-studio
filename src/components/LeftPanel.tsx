@@ -82,7 +82,7 @@ export function LeftPanel(props: LeftPanelProps) {
       <header className="flex items-center justify-between gap-2 border-b border-line bg-paper-2 px-3 py-2.5">
         <div className="flex items-center gap-1.5">
           <Target className="h-4 w-4 text-amber-600" />
-          <h2 className="text-xs font-bold text-ink">1. 卡点素材与创作指令</h2>
+          <h2 className="text-xs font-bold text-ink">1. 前文与要求</h2>
         </div>
         <button
           type="button"
@@ -126,7 +126,7 @@ export function LeftPanel(props: LeftPanelProps) {
             <span className="mt-0.5 text-[11px] font-bold text-amber-900">未配置模型</span>
             <div className="min-w-0 flex-1">
               <p className="text-[10px] leading-snug text-amber-900/85">
-                续写与蓝图生成需要真实模型。下面的「卡点前文」和走向指令可以随便填，但点生成前需要先接入模型。
+                续写和大纲都需要真实模型才能生成。下面的前文和要求可以随便填，但点“生成”前要先接入模型。
               </p>
               <button
                 type="button"
@@ -170,7 +170,7 @@ export function LeftPanel(props: LeftPanelProps) {
         {/* 前文输入 */}
         <div className="flex min-h-[150px] flex-1 flex-col">
           <div className="mb-1 flex items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold text-zinc-700">卡点前文正文</span>
+            <span className="text-[11px] font-semibold text-zinc-700">前文正文（付费点之前）</span>
             <div className="flex items-center gap-1">
               <Badge
                 tone={diagnostics.chars >= 2500 && diagnostics.chars <= 6000 ? 'emerald' : 'neutral'}
@@ -180,10 +180,10 @@ export function LeftPanel(props: LeftPanelProps) {
               </Badge>
               <Badge tone="amber" title={LENGTH_TIER_HINT[tier]}>
                 {tier === 'EARLY_SETUP_UNDER_2500'
-                  ? '蓄势期'
+                  ? '短前文'
                   : tier === 'STANDARD_PAYWALL_30_45_PCT'
-                    ? '黄金卡点期'
-                    : '连载滚动期'}
+                    ? '标准卡点'
+                    : '超长篇'}
               </Badge>
             </div>
           </div>
@@ -191,7 +191,7 @@ export function LeftPanel(props: LeftPanelProps) {
             value={sourceText}
             onChange={(e) => onSourceTextChange(e.target.value)}
             spellCheck={false}
-            placeholder="在此粘贴 3,000–5,000 字卡点前文（建议停在付费卡点最后一句）…"
+            placeholder="把付费点之前的前文粘贴到这里（建议停在最后一句）…"
             className="min-h-[150px] flex-1 resize-none rounded-xl border border-line bg-paper px-3 py-2.5 font-serif text-[12px] leading-[1.8] text-ink outline-none focus:border-amber-500"
           />
           <div className="mt-1.5 flex items-center gap-1.5">
@@ -202,7 +202,7 @@ export function LeftPanel(props: LeftPanelProps) {
               className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-40"
             >
               <Sparkles className="h-3 w-3 text-amber-600" />
-              载入 {countWords(SAMPLE_TEXT).toLocaleString()} 字卡点样本
+              载入示例前文（{countWords(SAMPLE_TEXT).toLocaleString()} 字）
             </button>
             <label className="flex shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-line bg-white px-2 py-1.5 text-[10px] font-medium text-zinc-700 hover:border-line-strong">
               <Upload className="h-3 w-3" />
@@ -226,7 +226,7 @@ export function LeftPanel(props: LeftPanelProps) {
 
         {/* 走向指令 */}
         <div className="space-y-2 rounded-xl border border-line bg-paper p-2.5">
-          <SectionLabel icon={<Compass className="h-3.5 w-3.5 text-indigo-600" />}>续写走向与爽点指令</SectionLabel>
+          <SectionLabel icon={<Compass className="h-3.5 w-3.5 text-indigo-600" />}>想怎么写（走向 / 爽点）</SectionLabel>
           <input
             type="text"
             value={direction}
@@ -259,7 +259,7 @@ export function LeftPanel(props: LeftPanelProps) {
         <div className="space-y-1.5 rounded-xl border border-line bg-paper p-2.5">
           <div className="flex items-center justify-between">
             <SectionLabel icon={<SlidersHorizontal className="h-3.5 w-3.5 text-amber-600" />}>
-              续写目标字数
+              目标字数
             </SectionLabel>
           </div>
           <div className="grid grid-cols-3 gap-1">
@@ -294,7 +294,7 @@ export function LeftPanel(props: LeftPanelProps) {
             onClick={() => setShowAdvanced((v) => !v)}
             className="flex w-full items-center justify-between text-[11px] font-bold text-zinc-800"
           >
-            <span>门禁与复审设置</span>
+            <span>检查与复审设置</span>
             <span className="font-mono text-[10px] text-zinc-500">{showAdvanced ? '收起' : '展开'}</span>
           </button>
           {showAdvanced && (
@@ -306,20 +306,20 @@ export function LeftPanel(props: LeftPanelProps) {
                 hint="开启后每段多一次模型调用；代码判定仍是权威，模型只补充修订建议与摘要。"
               />
               <label className="block">
-                <span className="mb-1 block text-[10px] font-semibold text-zinc-700">返工上限（每段）</span>
+                <span className="mb-1 block text-[10px] font-semibold text-zinc-700">重写上限（每段）</span>
                 <select
                   value={maxRevision}
                   onChange={(e) => onMaxRevision(Number(e.target.value))}
                   className="w-full rounded-lg border border-line-strong bg-white px-2 py-1 text-[11px] text-zinc-800 outline-none"
                 >
-                  <option value={0}>不返工（门禁只记录）</option>
-                  <option value={1}>返工 1 次</option>
-                  <option value={2}>返工 2 次</option>
-                  <option value={3}>返工 3 次</option>
+                  <option value={0}>不重写（检查只记录）</option>
+                  <option value={1}>重写 1 次</option>
+                  <option value={2}>重写 2 次</option>
+                  <option value={3}>重写 3 次</option>
                 </select>
               </label>
               <p className="text-[10px] leading-snug text-zinc-500">
-                门禁未通过时会带着具体修改指令重写该段；达到上限后按当前稿保留并标注「存在未通过门禁」。
+                检查未通过时会带着具体修改指令重写该段；达到上限后按当前稿保留并标注「存在未通过质检」。
               </p>
             </div>
           )}
@@ -364,7 +364,7 @@ export function LeftPanel(props: LeftPanelProps) {
           className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2 text-[11px] font-bold text-zinc-950 shadow-sm transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ScanLine className="h-3.5 w-3.5" />
-          {hasBlueprint ? '重新生成四拍蓝图' : '生成商业三段式细纲'}
+          {hasBlueprint ? '重新生成大纲' : '生成分段大纲'}
         </button>
       </div>
     </section>

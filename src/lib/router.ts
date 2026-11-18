@@ -1,5 +1,5 @@
 /**
- * 体量路由 + 蓝图规划（PRD §3 / §5）
+ * 按字数自动选模式 + 大纲规划（PRD §3 / §5）
  * 纯函数，可单测；不依赖模型。
  */
 
@@ -28,7 +28,7 @@ export function routeReason(tier: LengthTier, charCount: number): string {
     case 'STANDARD_PAYWALL_30_45_PCT':
       return `前文 ${charCount.toLocaleString()} 字，正处付费墙边缘（30%–45%）→ 标准商业三段式。`;
     default:
-      return `前文 ${charCount.toLocaleString()} 字，超长文本 → 启用 Arc Unit 滚动状态机。`;
+      return `前文 ${charCount.toLocaleString()} 字，超长文本 → 启用 分单元滚动。`;
   }
 }
 
@@ -90,8 +90,8 @@ export function buildSegmentPlan(input: PlanInput): SegmentOutline[] {
       return {
         segment_index: i + 1,
         segment_role: isLast
-          ? `第 ${i + 1} 单元 · 全账清算与大结局`
-          : `第 ${i + 1} 单元 · Arc Unit（兑现 → 反击 → 新卡点）`,
+          ? `第 ${i + 1} 单元 · 全部收尾`
+          : `第 ${i + 1} 单元 · 一个小高潮`,
         title_hint: isLast ? '终局清算' : `情绪单元 ${i + 1}`,
         target_words: perUnit,
         beats,
@@ -107,8 +107,8 @@ export function buildSegmentPlan(input: PlanInput): SegmentOutline[] {
     {
       segment_index: 1,
       segment_role: early
-        ? '第 1 段 · 蓄势引爆段（补全压抑 → 推高至主卡点 → 当场引爆）'
-        : '第 1 段 · 卡点即时兑现段',
+        ? '第 1 段 · 先把情绪垫足，再当场给结果'
+        : '第 1 段 · 开头就把结果给出来',
       title_hint: early ? '蓄势引爆' : '当众兑现',
       target_words: t1,
       beats: {
@@ -122,7 +122,7 @@ export function buildSegmentPlan(input: PlanInput): SegmentOutline[] {
     },
     {
       segment_index: 2,
-      segment_role: '第 2 段 · 二次反转与情绪加码段',
+      segment_role: '第 2 段 · 再来一次反转',
       title_hint: '二次反转',
       target_words: t2,
       beats: {
@@ -134,7 +134,7 @@ export function buildSegmentPlan(input: PlanInput): SegmentOutline[] {
     },
     {
       segment_index: 3,
-      segment_role: '第 3 段 · 终局清算与金句收尾段',
+      segment_role: '第 3 段 · 全部算清，用一句话收尾',
       title_hint: '终局清算',
       target_words: t3,
       beats: {
@@ -162,7 +162,7 @@ export function planMicroSteps(targetWords: number, step = MICRO_STEP_WORDS): nu
   return steps;
 }
 
-/* ------------------------------------------------------- 兜底 Story Bible */
+/* ------------------------------------------------------- 备用方案 人物与文风设定 */
 
 export function buildFallbackBible(a1: Agent1Payload, direction: string): StoryBible {
   const style = profileStyle(a1.cleaned_text);

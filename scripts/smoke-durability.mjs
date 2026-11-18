@@ -19,12 +19,12 @@ try {
   const payload = `${marker}\n\n第二段正文，用来验证防抖窗口内的改动不会随刷新丢失。`;
 
   console.log('1) 填入带唯一标记的前文（不等防抖）');
-  const filled = await app.fillInput(['卡点前文'], payload);
+  const filled = await app.fillInput(['前文'], payload);
   if (filled !== 'FILLED') throw new Error('前文输入框不可用');
 
   console.log('2) 立即重载页面');
   await app.send('Page.reload', { ignoreCache: true });
-  await app.waitForText('续写长文与门禁精修台', 25000);
+  await app.waitForText('正文与修改', 25000);
   await new Promise((r) => setTimeout(r, 600));
 
   const value = await app.evaluate('document.querySelector("textarea") ? document.querySelector("textarea").value : ""');

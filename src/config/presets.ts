@@ -30,18 +30,18 @@ export function targetTierById(id: string): TargetTier {
   return TARGET_TIERS.find((t) => t.id === id) ?? TARGET_TIERS[1];
 }
 
-/* ------------------------------------------------------------- 体量路由 */
+/* ------------------------------------------------------------- 按字数自动选模式 */
 
 export const LENGTH_TIER_LABEL: Record<LengthTier, string> = {
-  EARLY_SETUP_UNDER_2500: '起步蓄势期（<2,500 字）',
-  STANDARD_PAYWALL_30_45_PCT: '黄金卡点期（2,500–6,000 字）',
-  LONG_FORM_SERIAL_OVER_6000: '长篇连载滚动期（>6,000 字）',
+  EARLY_SETUP_UNDER_2500: '短前文（不到 2,500 字）',
+  STANDARD_PAYWALL_30_45_PCT: '标准卡点（2,500–6,000 字）',
+  LONG_FORM_SERIAL_OVER_6000: '超长篇（超过 6,000 字）',
 };
 
 export const LENGTH_TIER_HINT: Record<LengthTier, string> = {
-  EARLY_SETUP_UNDER_2500: '尚未抵达 30% 主卡点：第 1 段改为补全蓄势并当场引爆，再接二次反转与收尾。',
-  STANDARD_PAYWALL_30_45_PCT: '已处于商业付费墙边缘：触发标准三段式，前 800 字强制正面兑现。',
-  LONG_FORM_SERIAL_OVER_6000: '切换长篇状态机：按每 3,500 字一个 Arc Unit 滚动推进，卷末留新卡点，最后一单元集中清算。',
+  EARLY_SETUP_UNDER_2500: '前文还太短、没到付费点：第 1 段先把情绪垫足再当场给结果，然后接反转和收尾。',
+  STANDARD_PAYWALL_30_45_PCT: '正好停在付费点上：按标准三段写，开头 800 字必须给结果。',
+  LONG_FORM_SERIAL_OVER_6000: '前文很长：每 3,500 字当一个单元写，每个单元结尾留个新悬念，最后一个单元全部收尾。',
 };
 
 /* ------------------------------------------------------------ 快捷走向 */

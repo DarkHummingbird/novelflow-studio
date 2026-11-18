@@ -3,11 +3,11 @@
  *
  * 真实执行顺序：
  *   Agent1（确定性清洗 + 可选 LLM 语义清洗）
- *     → 体量路由（<2500 / 2500–6000 / >6000）
- *     → Agent2（LLM 蓝图 + 契约归一化，失败则确定性规划）
- *     → 逐段：Agent3（真实流式撰写 / 微步长接力 / 仿真兜底）
- *              → Agent4（确定性六道门禁 [+ 可选 LLM 复审]）
- *              → REJECT 则带着具体修改指令返工（有上限，不会死循环）
+ *     → 按字数自动选模式（<2500 / 2500–6000 / >6000）
+ *     → Agent2（LLM 大纲 + 数据格式格式校正，失败则确定性规划）
+ *     → 逐段：Agent3（真实流式撰写 / 自动补齐 / 模板演示备用方案）
+ *              → Agent4（确定性六项检查 [+ 可选 LLM 复审]）
+ *              → REJECT 则带着具体修改指令重写（有上限，不会死循环）
  *     → 每段完成即回调，UI 负责写 IndexedDB 断点。
  */
 
@@ -137,7 +137,7 @@ function buildWritePrompt(args: WriteArgs): string {
   const { outline, index, total, bible, contextWindow, direction, revision } = args;
   const bibleBrief = [
     `人称：${bible.pov}`,
-    `诱饵：${bible.bait_type}`,
+    `卡点：${bible.bait_type}`,
     `文风：平均句长 ${bible.style_fingerprint.avg_sentence_len} 字 / 对话占比 ${bible.style_fingerprint.dialogue_ratio} / ${bible.style_fingerprint.tone_keywords.join('、')}`,
     `人物：${bible.characters.map((c) => `${c.name}(${c.role})：${c.traits}；当前${c.current_state}`).join(' ｜ ')}`,
   ].join('\n');
@@ -147,13 +147,13 @@ function buildWritePrompt(args: WriteArgs): string {
 ${index === 0 ? '【硬性红线】前 800 字内必须正面兑现前文卡点悬念（给出结果），严禁用环境描写、回忆杀、切视角拖延。' : ''}
 ${index === total - 1 ? '【终局红线】最后 400 字完成情绪闭合，末句必须是 8–60 字、可截图传播的陈述性金句（不能是问句、不能是“未完待续”）。' : ''}
 
-# Story Bible
+# 人物与文风设定
 ${bibleBrief}
 
 # 用户走向指令
 ${direction.trim() || '（空）请自主推演最解气、最有传播力的走向'}
 
-# 本段四拍细纲
+# 本段分段大纲
 起：${outline.beats.qi}
 承：${outline.beats.cheng}
 转：${outline.beats.zhuan}
@@ -162,12 +162,12 @@ ${direction.trim() || '（空）请自主推演最解气、最有传播力的走
 # 紧邻上文（必须从这里无缝接续，第一句直接承接最后一秒的动作或对话）
 ${contextWindow}
 
-# 门禁红线
-- 字数口径：非空白字符数（含中文标点），与番茄/知乎后台一致；合格线为目标字数的 85%。
+# 检查红线
+- 字数算法：非空白字符数（含中文标点），与番茄/知乎后台一致；合格线为目标字数的 85%。
 - 不要输出章节标题、段号、字数说明、作者注释。
 - 禁止“嘴角勾起一抹弧度”“眼神中闪过一丝不易察觉”“空气仿佛凝固了”等套话与车轱辘话。
 - 用具体动作、微表情、利益博弈与个性化台词撑字数，禁止概括式流水账。
-${revision ? `\n# 上一版被六道门禁打回，本次必须逐条修正\n${revision}` : ''}
+${revision ? `\n# 上一版被六项检查打回，本次必须逐条修正\n${revision}` : ''}
 
 # 输出
 只输出本段纯小说正文。`;
@@ -272,21 +272,21 @@ export async function runPipeline(input: RunInput, options: PipelineOptions, hoo
 
   try {
     hooks.onEngine(live ? 'live' : 'simulation');
-    log('system', 'info', live ? `引擎：真实模型 ${options.api.model}` : '引擎：内置仿真引擎（未配置 API Key）');
+    log('system', 'info', live ? `引擎：真实模型 ${options.api.model}` : '引擎：内置模板演示（未配置 API Key）');
     if (!live) {
-      log('system', 'warn', '未检测到 API Key：全部文案由确定性仿真引擎生成，仅用于结构与流程演示。');
+      log('system', 'warn', '未检测到 API Key：全部文案由确定性模板演示生成，仅用于结构与流程演示。');
     }
 
     /* ---------------------------------------------------- Agent 1 */
     let a1: Agent1Payload | null = options.existing?.agent1 ?? null;
     if (a1) {
-      log('system', 'info', '复用已确认的卡点载荷，跳过 Agent 01（保护用户已编辑的蓝图）。');
+      log('system', 'info', '沿用上次读到的前文，跳过第 1 步（保护用户已编辑的大纲）。');
       hooks.onAgent1(a1);
       hooks.onAgent('agent1', 'pass');
-      setProgress({ label: `Agent 01 复用 · ${a1.total_char_count.toLocaleString()} 字`, percent: 8 });
+      setProgress({ label: `第 1 步（沿用上次） · ${a1.total_char_count.toLocaleString()} 字`, percent: 8 });
     } else {
     hooks.onAgent('agent1', 'running');
-    setProgress({ label: 'Agent 01 · 清洗平台噪音并锚定卡点…', percent: 2 });
+    setProgress({ label: '第 1 步 · 清洗前文、找到付费点…', percent: 2 });
     ensureAlive(options.signal);
 
     const stripped = stripNoise(input.text);
@@ -331,24 +331,24 @@ export async function runPipeline(input: RunInput, options: PipelineOptions, hoo
     }
 
     agent1 = a1;
-    // 示例模式只在仿真引擎下启用：示例脚本是人工定稿，目标字数必须以脚本实际长度校准，
-    // 否则门禁会拿“7500 字档位”去卡一篇 1,800 字的示例，产生假 REJECT。
+    // 示例模式只在模板演示下启用：示例脚本是人工定稿，目标字数必须以脚本实际长度校准，
+    // 否则检查会拿“7500 字档位”去卡一篇 1,800 字的示例，产生假 REJECT。
     const sampleMode = !live && looksLikeSample(a1.cleaned_text);
     const sampleTargets = sampleMode ? [1, 2, 3].map((i) => countWords(SAMPLE_CONTINUATION[i] ?? '')) : [];
     const sampleScriptWords = sampleTargets.reduce((n, w) => n + w, 0);
     const planWords = sampleMode ? sampleScriptWords : targetTier.totalWords;
     const tierReason = routeReason(a1.length_tier, a1.total_char_count);
-    log('agent1', 'info', `体量路由：${a1._meta.tier_label} · ${tierReason}`);
+    log('agent1', 'info', `按字数自动选模式：${a1._meta.tier_label} · ${tierReason}`);
     setProgress({
-      label: `Agent 01 完成 · ${a1.total_char_count.toLocaleString()} 字 · ${a1._meta.tier_label}`,
+      label: `第 1 步完成 · ${a1.total_char_count.toLocaleString()} 字 · ${a1._meta.tier_label}`,
       percent: 8,
     });
 
     /* ---------------------------------------------------- Agent 2 */
     let a2: Agent2Payload | null = options.existing?.agent2 ?? null;
     if (a2) {
-      log('system', 'info', '复用已确认的四拍蓝图，跳过 Agent 02（保护蓝图编辑）。');
-      setProgress({ label: `Agent 02 复用 · ${a2.segment_outlines.length} 段蓝图`, percent: 12 });
+      log('system', 'info', '沿用上次的大纲，跳过第 2 步（保护大纲编辑）。');
+      setProgress({ label: `第 2 步（沿用上次大纲） · ${a2.segment_outlines.length} 段`, percent: 12 });
       hooks.onAgent('agent2', 'pass');
     } else {
     hooks.onAgent('agent2', 'running');
@@ -366,7 +366,7 @@ export async function runPipeline(input: RunInput, options: PipelineOptions, hoo
       payoffMandate: bait.first_800w_payoff_mandate,
     });
 
-    setProgress({ label: 'Agent 02 · 识别诱饵并推演四拍蓝图…', percent: 12 });
+    setProgress({ label: '第 2 步 · 判断悬念类型、生成分段大纲…', percent: 12 });
     if (live) {
       try {
         const res = await callLLM(options.api, {
@@ -395,12 +395,12 @@ ${a1.cleaned_text.slice(0, 6000)}`,
             planMode,
             routeReason: tierReason,
           });
-          log('agent2', 'pass', `LLM 蓝图生成完成：${a2.segment_outlines.length} 段 · 诱饵 ${a2.story_bible.bait_type}`);
+          log('agent2', 'pass', `LLM 大纲生成完成：${a2.segment_outlines.length} 段 · 卡点 ${a2.story_bible.bait_type}`);
         } else {
-          log('agent2', 'warn', 'Agent2 返回内容不是合法 JSON，改用确定性蓝图。');
+          log('agent2', 'warn', 'Agent2 返回内容不是合法 JSON，改用确定性大纲。');
         }
       } catch (err) {
-        log('agent2', 'warn', `Agent2 LLM 失败，改用确定性蓝图：${err instanceof Error ? err.message : String(err)}`);
+        log('agent2', 'warn', `Agent2 LLM 失败，改用确定性大纲：${err instanceof Error ? err.message : String(err)}`);
       }
     }
     if (!a2) {
@@ -409,7 +409,7 @@ ${a1.cleaned_text.slice(0, 6000)}`,
         segment_outlines: fallbackOutlines,
         _meta: { plan_mode: planMode, judged_by: 'code', route_reason: tierReason },
       };
-      log('agent2', 'info', `确定性蓝图：${fallbackOutlines.length} 段 / 合计 ${fallbackOutlines.reduce((n, o) => n + o.target_words, 0)} 字`);
+      log('agent2', 'info', `确定性大纲：${fallbackOutlines.length} 段 / 合计 ${fallbackOutlines.reduce((n, o) => n + o.target_words, 0)} 字`);
     }
     hooks.onAgent2(a2);
     }
@@ -442,9 +442,9 @@ ${a1.cleaned_text.slice(0, 6000)}`,
     if (options.planOnly) {
       setProgress({
         percent: 100,
-        label: `蓝图已生成：${a2.segment_outlines.length} 段 / 合计约 ${a2.segment_outlines.reduce((n, o) => n + o.target_words, 0)} 字`,
+        label: `大纲已生成：${a2.segment_outlines.length} 段 / 合计约 ${a2.segment_outlines.reduce((n, o) => n + o.target_words, 0)} 字`,
       });
-      log('system', 'pass', 'Agent 02 完成，等待确认蓝图后启动主笔。');
+      log('system', 'pass', 'Agent 02 完成，等待确认大纲后启动主笔。');
       return { aborted: false, segments, agent1, agent2, logs, progress, memoryBanner };
     }
 
@@ -452,7 +452,7 @@ ${a1.cleaned_text.slice(0, 6000)}`,
       log('system', 'info', '检测到内置示例文本：将使用内置示例续写脚本，并在界面标注“示例脚本”。');
     }
 
-    /* ------------------------------------------------ 逐段撰写 + 门禁 */
+    /* ------------------------------------------------ 逐段撰写 + 检查 */
     const summaries: string[] = [];
     let revision = '';
 
@@ -466,15 +466,15 @@ ${a1.cleaned_text.slice(0, 6000)}`,
         i === 0 && a1.total_char_count <= 5500
           ? a1.cleaned_text
           : [
-              `[Story Bible] ${a2.story_bible.characters.map((c) => `${c.name}(${c.role})`).join('、')}`,
+              `[人物与文风设定] ${a2.story_bible.characters.map((c) => `${c.name}(${c.role})`).join('、')}`,
               `[前情摘要] ${summaries.join(' ／ ') || '紧接卡点'}`,
               `[紧邻前文 1,500 字] ${i === 0 ? tailChars(a1.cleaned_text, 1500) : tailChars(segments[i - 1].text, 1500)}`,
             ].join('\n');
 
       memoryBanner =
         i === 0 && a1.total_char_count <= 5500
-          ? `前文仅 ${a1.total_char_count.toLocaleString()} 字，已注入 100% 完整原文（滑动窗口首段策略）`
-          : `已注入 [Story Bible] + 前 ${i} 段事实摘要 + 紧邻上文 1,500 字切片`;
+          ? `前文仅 ${a1.total_char_count.toLocaleString()} 字，已注入 100% 完整原文（前文记忆首段策略）`
+          : `已注入 [人物与文风设定] + 前 ${i} 段事实摘要 + 紧邻上文 1,500 字切片`;
       hooks.onMemory(memoryBanner);
 
       hooks.onAgent('agent3', 'running');
@@ -494,8 +494,8 @@ ${a1.cleaned_text.slice(0, 6000)}`,
         setProgress({
           active_segment: i + 1,
           percent: Math.min(12 + Math.round(((i + 0.15) / segments.length) * 84), 94),
-          label: `Agent 03 · 第 ${i + 1}/${segments.length} 段：${outline.title_hint || outline.segment_role}${
-            attempts > 1 ? `（第 ${attempts} 次返工）` : ''
+          label: `第 3 步 · 正在写第 ${i + 1}/${segments.length} 段：${outline.title_hint || outline.segment_role}${
+            attempts > 1 ? `（第 ${attempts} 次重写）` : ''
           }`,
         });
 
@@ -534,7 +534,7 @@ ${a1.cleaned_text.slice(0, 6000)}`,
           } catch (err) {
             if (err instanceof AbortedError) throw err;
             log('agent3', 'error', `第 ${i + 1} 段 LLM 撰写失败：${err instanceof Error ? err.message : String(err)}`);
-            log('agent3', 'warn', '已自动降级为仿真引擎续跑该段，流程不中断。');
+            log('agent3', 'warn', '已自动降级为模板演示续跑该段，流程不中断。');
             source = 'simulation';
             text = simulateSegment({
               outline,
@@ -566,13 +566,13 @@ ${a1.cleaned_text.slice(0, 6000)}`,
         segment.warnings = warnings;
         hooks.onStream(i, text);
 
-        /* ---------------------------------------- Agent 4 门禁 */
+        /* ---------------------------------------- Agent 4 检查 */
         hooks.onAgent('agent3', 'pass');
         hooks.onAgent('agent4', 'running');
         setProgress({
           active_segment: i + 1,
           percent: Math.min(12 + Math.round(((i + 0.8) / segments.length) * 84), 96),
-          label: `Agent 04 · 第 ${i + 1} 段六道商业门禁校验…`,
+          label: `第 4 步 · 检查第 ${i + 1} 段…`,
         });
 
         const codeGate = evaluateGates({
@@ -590,8 +590,8 @@ ${a1.cleaned_text.slice(0, 6000)}`,
           try {
             const res = await callLLM(options.api, {
               system: AGENT_SPECS[3].system_prompt,
-              user: `# Story Bible\n${JSON.stringify(a2.story_bible).slice(0, 1500)}
-# 本段四拍细纲\n${JSON.stringify(outline.beats)}
+              user: `# 人物与文风设定\n${JSON.stringify(a2.story_bible).slice(0, 1500)}
+# 本段分段大纲\n${JSON.stringify(outline.beats)}
 # 上文结尾锚点\n${tailChars(a1.cleaned_text, 200)}
 # 本段正文\n${text.slice(0, 6000)}`,
               json: true,
@@ -602,7 +602,7 @@ ${a1.cleaned_text.slice(0, 6000)}`,
             gate = mergeLLMReview(codeGate, coerceLLMReview(parseJsonLoose(res.text)));
             log('agent4', 'info', `第 ${i + 1} 段已叠加 LLM 复审（代码判定仍为权威）`);
           } catch (err) {
-            log('agent4', 'warn', `LLM 复审失败，仅使用确定性门禁：${err instanceof Error ? err.message : String(err)}`);
+            log('agent4', 'warn', `LLM 复审失败，仅使用确定性检查：${err instanceof Error ? err.message : String(err)}`);
           }
         }
 
@@ -613,7 +613,7 @@ ${a1.cleaned_text.slice(0, 6000)}`,
           segment.status = 'rejected';
           hooks.onAgent('agent4', 'reject');
           hooks.onSegments([...segments]);
-          log('agent4', 'reject', `第 ${i + 1} 段门禁未通过：${gate.revision_instructions.join('；')}`);
+          log('agent4', 'reject', `第 ${i + 1} 段检查未通过：${gate.revision_instructions.join('；')}`);
           revision = gate.revision_instructions.join('\n');
           await sleep(120);
           continue;
@@ -622,9 +622,9 @@ ${a1.cleaned_text.slice(0, 6000)}`,
         segment.status = gate.status === 'PASS' ? 'pass' : 'forced';
         if (segment.status === 'forced') {
           segment.warnings.push(...gate.revision_instructions);
-          log('agent4', 'warn', `第 ${i + 1} 段已达返工上限，按当前稿保留（存在未通过门禁）。`);
+          log('agent4', 'warn', `第 ${i + 1} 段已达重写上限，按当前稿保留（存在未通过质检）。`);
         } else {
-          log('agent4', 'pass', `第 ${i + 1} 段通过六道门禁（${gate.actual_word_count} 字 · 重复率 ${(gate._meta.repeat_ratio * 100).toFixed(1)}%）`);
+          log('agent4', 'pass', `第 ${i + 1} 段通过六项检查（${gate.actual_word_count} 字 · 重复率 ${(gate._meta.repeat_ratio * 100).toFixed(1)}%）`);
         }
         hooks.onAgent('agent4', 'pass');
         summaries.push(gate.summary_for_next_segment);
@@ -638,7 +638,7 @@ ${a1.cleaned_text.slice(0, 6000)}`,
     }
 
     setProgress({ percent: 100, label: '全部段落撰写与质检完成', active_segment: segments.length });
-    hooks.onMemory('全段落完成：Story Bible、四拍蓝图与门禁报告均已固化，可导出交付。');
+    hooks.onMemory('全段落完成：人物与文风设定、分段大纲与质检结果均已固化，可导出交付。');
     log('system', 'pass', `流水线完成：${segments.length} 段 / ${segments.reduce((n, s) => n + s.word_count, 0)} 字`);
     hooks.onAgent('agent3', 'pass');
     hooks.onAgent('agent4', segments.every((s) => s.status === 'pass') ? 'pass' : 'reject');
@@ -708,7 +708,7 @@ export async function rewriteOneSegment(args: RewriteArgs): Promise<RewriteResul
 
   if (isApiConfigured(api)) {
     try {
-      // 与主笔同一套微步长策略：单次调用若被 max_tokens 截断就继续接力，
+      // 与主笔同一套分段策略：单次调用若被 max_tokens 截断就继续接力，
       // 否则长段重写（>2,500 字）会被硬生生砍掉一半。
       let acc = '';
       const maxCalls = Math.min(4, Math.max(1, Math.ceil(outline.target_words / 1200)));
@@ -724,7 +724,7 @@ export async function rewriteOneSegment(args: RewriteArgs): Promise<RewriteResul
 用户修改意见：【${userNote}】
 约 ${outline.target_words} 字。
 
-# 必须保留的四拍节点
+# 必须保留的四步节点
 起：${outline.beats.qi}
 承：${outline.beats.cheng}
 转：${outline.beats.zhuan}
@@ -761,7 +761,7 @@ ${current.slice(0, 3000)}
         warnings.push('重写稿字数偏少，可能被输出上限截断');
       }
     } catch (err) {
-      warnings.push(`LLM 重写失败，已降级为仿真引擎：${err instanceof Error ? err.message : String(err)}`);
+      warnings.push(`LLM 重写失败，已降级为模板演示：${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

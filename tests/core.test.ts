@@ -193,7 +193,7 @@ describe('router / planner', () => {
     const total = outlines.reduce((n, o) => n + o.target_words, 0);
     expect(Math.abs(total - tier.totalWords)).toBeLessThan(20);
     expect(outlines[0].beats.qi).toContain('800');
-    expect(outlines[2].segment_role).toContain('终局');
+    expect(outlines[2].segment_role).toContain('收尾');
   });
 
   it('长篇模式切换为 Arc Unit 循环', () => {
@@ -207,8 +207,8 @@ describe('router / planner', () => {
       payoffMandate: '',
     });
     expect(outlines.length).toBe(3);
-    expect(outlines[0].segment_role).toContain('Arc Unit');
-    expect(outlines[outlines.length - 1].segment_role).toContain('大结局');
+    expect(outlines[0].segment_role).toContain('单元');
+    expect(outlines[outlines.length - 1].segment_role).toContain('收尾');
   });
 
   it('兜底 Story Bible 带上走向与反派', () => {
@@ -247,7 +247,7 @@ describe('six gates', () => {
     const gate = evaluateGates({ draft, outline, index: 0, total: 3, bible, agent1: a1, previousTail: a1.ending_anchor });
     expect(gate.gates.word_count_ok).toBe(false);
     expect(gate.status).toBe('REJECT');
-    expect(gate.revision_instructions.join()).toContain('字数不足');
+    expect(gate.revision_instructions.join()).toContain('字数不够');
   });
 
   it('章节标题残留会打断无缝衔接门禁', () => {
@@ -293,7 +293,7 @@ describe('six gates', () => {
       summary_for_next_segment: '主角当众亮出公证书。',
     });
     expect(merged.status).toBe('REJECT');
-    expect(merged.revision_instructions.join()).toContain('字数不足');
+    expect(merged.revision_instructions.join()).toContain('字数不够');
     expect(merged.revision_instructions.join()).toContain('建议补充旁观者反应');
     expect(merged.summary_for_next_segment).toBe('主角当众亮出公证书。');
     expect(merged._meta.judged_by).toBe('code+llm');
@@ -552,7 +552,7 @@ describe('export', () => {
     expect(md).toContain('# 测试作品');
     expect(md).toContain('卡点前文（原文）');
     expect(md).toContain('六道商业门禁质检报告');
-    expect(md).toContain('字数达标');
+    expect(md).toContain('字数够不够');
     expect(md).toContain(text.slice(0, 30));
   });
 

@@ -29,19 +29,19 @@ export const AGENT_SPECS: AgentSpec[] = [
   {
     id: 'agent1',
     code: 'AGENT 01',
-    short_title: '卡点摄取',
-    name: '多模卡点摄取网关',
+    short_title: '读前文',
+    name: '读前文 · 找卡点',
     en_name: 'Ingestion & Normalization Gateway',
     models: '确定性清洗器（正则 + 段落指纹去重）+ LLM 语义清洗',
     skills: [
       {
         name: 'adaptive_video_ocr_stitcher',
-        type: 'OCR / Stitching',
+        type: '视频转文字',
         desc: '自适应光流抽帧 + LCS 最长公共子序列重叠文本合并与残影纠错（v5.0 后端流水线；当前版本由确定性段落去重承担等价职责）。',
       },
       {
         name: 'paywall_noise_stripper',
-        type: 'Normalization',
+        type: '文本清洗',
         desc: '正则剥离“开通会员解锁后续内容”“点击阅读原文”“点赞收藏看全集”等平台噪音，并保留原作者全部修辞。',
       },
     ],
@@ -70,14 +70,14 @@ export const AGENT_SPECS: AgentSpec[] = [
   {
     id: 'agent2',
     code: 'AGENT 02',
-    short_title: '诱饵与蓝图',
-    name: '商业短篇主编',
+    short_title: '出大纲',
+    name: '出分段大纲',
     en_name: 'Commercial Story Architect',
     models: 'Stylometry 文风分析 + 六诱饵分类器 + LLM 规划',
     skills: [
       {
         name: 'novel_style_profiler',
-        type: 'Stylometry',
+        type: '文风分析',
         desc: '统计平均句长、对话段落占比、感叹号/问号情绪密度与人称视角（第一/第三人称）。',
       },
       {
@@ -142,14 +142,14 @@ export const AGENT_SPECS: AgentSpec[] = [
   {
     id: 'agent3',
     code: 'AGENT 03',
-    short_title: '滑动主笔',
-    name: '微步长滑动窗口主笔',
+    short_title: '写正文',
+    name: '写正文',
     en_name: 'Ghostwriter Agent',
     models: '滑动窗口上下文装配 + LLM 流式撰写',
     skills: [
       {
         name: 'sliding_window_context_manager',
-        type: 'Context Engineering',
+        type: '上下文管理',
         desc: '前文 ≤ 5,500 字时首段注入 100% 完整前文；前文 > 5,500 字或撰写第 2、3 段时，动态拼接 [Story Bible] + [前段 150 字事实摘要] + [紧邻上文末尾 1,500 字原文切片]。',
       },
       {
@@ -178,14 +178,14 @@ export const AGENT_SPECS: AgentSpec[] = [
   {
     id: 'agent4',
     code: 'AGENT 04',
-    short_title: '6道门禁',
-    name: '商业门禁与连贯性审稿员',
+    short_title: '做质检',
+    name: '质检',
     en_name: 'Continuity & Gatekeeper Editor',
     models: '确定性门禁引擎（6 项硬校验）+ 可选 LLM 复审',
     skills: [
       {
         name: 'commercial_gatekeeper_scanner',
-        type: 'Deterministic Gatekeeper',
+        type: '规则质检',
         desc: '确定性扫描：净字数达标率、AI 套话命中、10-gram 车轱辘话重复率、标题残留、人称一致性、结尾金句长度与句式。',
       },
     ],
@@ -242,10 +242,10 @@ export const AGENT_BY_ID: Record<AgentId, AgentSpec> = AGENT_SPECS.reduce(
 );
 
 export const GATE_LABELS: Record<keyof import('../types').GateFlags, string> = {
-  word_count_ok: '字数达标',
-  instant_payoff_800_ok: '前800字兑现',
-  character_pov_ok: '人设与视角',
-  seamless_bridge_ok: '物理无缝衔接',
-  anti_cliche_ok: '去 AI 套话',
-  golden_ending_ok: '终局金句',
+  word_count_ok: '字数够不够',
+  instant_payoff_800_ok: '开头有没有给结果',
+  character_pov_ok: '人物和视角对不对',
+  seamless_bridge_ok: '能不能接上上一段',
+  anti_cliche_ok: '像不像 AI 写的',
+  golden_ending_ok: '结尾有没有金句',
 };

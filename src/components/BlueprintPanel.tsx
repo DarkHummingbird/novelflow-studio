@@ -7,7 +7,7 @@ import type { Agent1Payload, Agent2Payload, Beats, TargetTierId, WorkspaceMode }
 import { Badge, EmptyState, SectionLabel } from './ui';
 
 const BEAT_KEYS: (keyof Beats)[] = ['qi', 'cheng', 'zhuan', 'he'];
-const BEAT_LABEL: Record<keyof Beats, string> = { qi: '起', cheng: '承', zhuan: '转', he: '合' };
+const BEAT_LABEL: Record<keyof Beats, string> = { qi: '开端', cheng: '承接', zhuan: '反转', he: '收尾' };
 const BEAT_TONE: Record<keyof Beats, string> = {
   qi: 'bg-sky-50 text-sky-900 border-sky-200',
   cheng: 'bg-amber-50 text-amber-900 border-amber-200',
@@ -18,7 +18,7 @@ const BEAT_TONE: Record<keyof Beats, string> = {
 const PLAN_MODE_LABEL: Record<Agent2Payload['_meta']['plan_mode'], string> = {
   three_stage: '标准商业三段式',
   early_setup: '蓄势引爆三拍',
-  arc_units: 'Arc Unit 滚动状态机',
+  arc_units: '分单元滚动',
 };
 
 export interface BlueprintPanelProps {
@@ -84,7 +84,7 @@ export function BlueprintPanel(props: BlueprintPanelProps) {
             </button>
           )}
           <Layers className="h-4 w-4 shrink-0 text-indigo-600" />
-          <h2 className="truncate text-xs font-bold text-ink">2. 诱饵诊断与四拍蓝图</h2>
+          <h2 className="truncate text-xs font-bold text-ink">2. 悬念类型与分段大纲</h2>
           {agent2 && (
             <Badge tone="indigo" className="hidden sm:inline-flex">
               {PLAN_MODE_LABEL[agent2._meta.plan_mode]}
@@ -106,22 +106,22 @@ export function BlueprintPanel(props: BlueprintPanelProps) {
         {!agent2 ? (
           <EmptyState
             icon={<Flame className="h-7 w-7" />}
-            title="等待识别卡点诱饵并推演四拍蓝图"
+            title="等待判断悬念类型并生成分段大纲"
             desc={
               <>
-                左侧确认前文与<strong className="text-zinc-700">续写走向指令</strong>后，点击“生成商业三段式细纲”。
-                蓝图生成后每一拍都可直接修改，写作阶段会严格按修改后的细纲执行。
+                左侧填好前文和<strong className="text-zinc-700">想怎么写</strong>之后，点“生成分段大纲”。
+                大纲生成后每一段都能直接改，写正文时会严格按改过的大纲执行。
               </>
             }
           />
         ) : (
           <>
-            {/* 诱饵诊断 */}
+            {/* 卡点诊断 */}
             <div className="space-y-1.5 rounded-xl border border-amber-200 bg-amber-50/70 p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1 text-[11px] font-bold text-amber-950">
                   <Flame className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                  六大商业诱饵诊断
+                  悬念类型诊断
                 </span>
                 <span className="rounded-full bg-amber-600 px-2 py-0.5 text-[10px] font-bold text-white">
                   {agent2.story_bible.bait_type}
@@ -134,21 +134,21 @@ export function BlueprintPanel(props: BlueprintPanelProps) {
                     {bait.bait_mechanism}
                   </p>
                   <p className="text-[10px] leading-relaxed text-amber-900/90">
-                    <strong>首段硬约束：</strong>
+                    <strong>开头必须做到：</strong>
                     {bait.first_800w_payoff_mandate}
                   </p>
                 </>
               )}
               <p className="text-[10px] text-amber-800">
-                判定来源：{agent2._meta.judged_by === 'llm' ? '主编模型（Agent 02）' : '确定性分类器'} ·{' '}
+                怎么判断的：{agent2._meta.judged_by === 'llm' ? '主编模型（Agent 02）' : '确定性分类器'} ·{' '}
                 {agent2._meta.route_reason}
               </p>
             </div>
 
-            {/* Story Bible */}
+            {/* 人物与文风设定 */}
             <div className="space-y-1.5 rounded-xl border border-line bg-paper p-3">
               <SectionLabel icon={<CircleDot className="h-3.5 w-3.5 text-indigo-600" />}>
-                Story Bible（人设与文风指纹）
+                人物与文风设定（人设与文风特征）
               </SectionLabel>
               <div className="flex flex-wrap gap-1">
                 <Badge tone="indigo">{agent2.story_bible.pov}</Badge>
@@ -171,11 +171,11 @@ export function BlueprintPanel(props: BlueprintPanelProps) {
               </ul>
             </div>
 
-            {/* 四拍蓝图 */}
+            {/* 分段大纲 */}
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] font-bold text-zinc-900">
-                  四拍续写蓝图
+                  分段大纲
                   <span className="ml-1 font-normal text-zinc-500">
                     · 目标 {plannedWords.toLocaleString()} 字 / {agent2.segment_outlines.length} 段
                   </span>
@@ -187,7 +187,7 @@ export function BlueprintPanel(props: BlueprintPanelProps) {
                   className="flex items-center gap-1 text-[10px] font-semibold text-indigo-700 hover:underline disabled:opacity-40"
                 >
                   <RefreshCw className="h-3 w-3" />
-                  重新推演
+                  重新生成
                 </button>
               </div>
 
@@ -262,7 +262,7 @@ export function BlueprintPanel(props: BlueprintPanelProps) {
                 className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-zinc-900 py-2.5 text-[11px] font-bold text-white shadow-sm transition-colors hover:bg-zinc-800 disabled:opacity-50"
               >
                 <Wand2 className="h-3.5 w-3.5 text-amber-400" />
-                {hasSegments ? `按当前蓝图重写正文（${tier.totalLabel}）` : `确认蓝图并启动主笔续写（${tier.totalLabel}）`}
+                {hasSegments ? `按当前大纲重写正文（${tier.totalLabel}）` : `确认大纲，开始写（${tier.totalLabel}）`}
               </button>
               {mode === 'architect' && (
                 <p className="text-center font-mono text-[9px] text-zinc-400">

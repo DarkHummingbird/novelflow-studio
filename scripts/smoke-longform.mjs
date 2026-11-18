@@ -1,7 +1,7 @@
 /**
- * 长文模式端到端冒烟：前文 > 6,000 字 → Arc Unit 滚动状态机。
+ * 长文模式端到端冒烟：前文 > 6,000 字 → 分单元滚动。
  *   node scripts/smoke-longform.mjs [file-or-url]
- * 断言：路由到「长篇连载滚动期」→ 蓝图出现 Arc Unit / 全账清算 → 逐单元写到完成 →
+ * 断言：路由到「超长篇」→ 大纲出现「单元 / 全部收尾」→ 逐个单元写到完成 →
  *       不出现内置示例脚本、不出现示例里的人物（防串味）→ Markdown 导出成功落盘。
  */
 import path from 'node:path';
@@ -49,30 +49,30 @@ const app = await launch({ url, port: 9334 });
 
 try {
   console.log('1) 输入 7,200+ 字前文');
-  const filled = await app.fillInput(['卡点前文'], longText);
+  const filled = await app.fillInput(['前文'], longText);
   if (filled !== 'FILLED') throw new Error('前文输入框不可用');
-  await app.waitForText('连载滚动期', 12000);
+  await app.waitForText('超长篇', 12000);
   await app.screenshot('/tmp/nf_l1_input.png');
 
-  console.log('2) 生成蓝图（应切到 Arc Unit）');
-  await app.clickAny(['生成商业三段式细纲', '重新生成四拍蓝图']);
-  await app.waitForText('四拍续写蓝图', 40000);
+  console.log('2) 生成大纲（应切到分单元模式）');
+  await app.clickAny(['生成分段大纲', '重新生成大纲']);
+  await app.waitForText('分段大纲', 40000);
   const blueprint = await app.bodyText();
-  for (const marker of ['Arc Unit', '全账清算']) {
-    if (!blueprint.includes(marker)) throw new Error(`长文蓝图缺少：${marker}`);
+  for (const marker of ['单元', '全部收尾']) {
+    if (!blueprint.includes(marker)) throw new Error(`长文大纲缺少：${marker}`);
   }
   await app.screenshot('/tmp/nf_l2_blueprint.png');
 
   console.log('3) 逐单元撰写');
-  await app.clickAny(['确认蓝图并启动主笔续写', '按当前蓝图重写正文']);
-  await app.waitForText('六道门禁', 90000);
+  await app.clickAny(['确认大纲，开始写', '按当前大纲重写正文']);
+  await app.waitForText('质检', 90000);
   await app.waitForText('全部段落撰写与质检完成', 120000);
   await new Promise((r) => setTimeout(r, 1200));
   const body = await app.bodyText();
 
   if (body.includes('示例脚本')) throw new Error('长文模式错误地使用了内置示例脚本');
   if (body.includes('周景深')) throw new Error('检测到示例样本人物串味（应为用户自己的故事）');
-  if (!/门禁\s*(PASS|REJECT)/.test(body) && !body.includes('按上限保留')) {
+  if (!/质检/.test(body) && !body.includes('没通过，先保留')) {
     throw new Error('未产出可判定的门禁结果');
   }
   await app.screenshot('/tmp/nf_l3_written.png');
@@ -89,7 +89,7 @@ try {
   }
   if (!files.length) throw new Error('Markdown 未落盘');
   const md = await readFile(path.join(downloadDir, files[0]), 'utf8');
-  if (!md.includes('六道商业门禁质检报告')) throw new Error('导出的 Markdown 缺少门禁报告');
+  if (!md.includes('质检报告')) throw new Error('导出的 Markdown 缺少质检结果');
   if (!md.includes('卡点前文（原文）')) throw new Error('导出的 Markdown 缺少前文');
   console.log(`  ✓ 已导出 ${files[0]}（${md.length} 字符）`);
 

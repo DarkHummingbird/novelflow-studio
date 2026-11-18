@@ -32,9 +32,9 @@ import type {
 } from './types';
 
 const CFG_KEY = 'novelflow_api_v4';
-/** 页面隐藏时的同步应急快照：IndexedDB 的异步写可能来不及在卸载前完成 */
+/** 页面隐藏时的同步应急存档：IndexedDB 的异步写可能来不及在卸载前完成 */
 const EMERGENCY_KEY = 'novelflow_emergency_v4';
-const BEAT_PREFIX: Record<keyof Beats, string> = { qi: '起', cheng: '承', zhuan: '转', he: '合' };
+const BEAT_PREFIX: Record<keyof Beats, string> = { qi: '开端', cheng: '承接', zhuan: '反转', he: '收尾' };
 
 function loadApiConfig(): ApiConfig {
   try {
@@ -138,7 +138,7 @@ export default function App() {
   const bootstrapped = useRef(false);
 
   const apiReady = isApiConfigured(apiConfig);
-  // 只有显式带 ?sim=1 时才允许无模型的仿真演示（内部测试用，普通用户看不到入口）
+  // 只有显式带 ?sim=1 时才允许无模型的模板演示演示（内部测试用，普通用户看不到入口）
   const simAllowed = useMemo(
     () => new URLSearchParams(window.location.search).get('sim') === '1',
     [],
@@ -192,7 +192,7 @@ export default function App() {
     setStreaming({});
   }, []);
 
-  /* -------------------------------------------------------- 自动快照 */
+  /* -------------------------------------------------------- 自动存档 */
   const lastAutoFingerprint = useRef('');
   const autoSnapshot = useCallback(
     async (reason: string) => {
@@ -211,7 +211,7 @@ export default function App() {
         setProjectId(id);
       }
       const words = segments.reduce((n, s) => n + s.word_count, 0);
-      const size = words > 0 ? `${words.toLocaleString()} 字` : '仅蓝图';
+      const size = words > 0 ? `${words.toLocaleString()} 字` : '仅大纲';
       await store.takeSnapshot(id, `自动 · ${reason} · ${size}`, state, 'auto', reason);
       lastAutoFingerprint.current = fingerprint;
       void store.snapshotsOf(id).then(setSnapshots);
@@ -225,7 +225,7 @@ export default function App() {
     bootstrapped.current = true;
     const latest = store.projects[0];
 
-    // 先看有没有"关闭前未落盘"的同步快照
+    // 先看有没有"关闭前未落盘"的同步存档
     let recoveredFromEmergency = false;
     try {
       const raw = localStorage.getItem(EMERGENCY_KEY);
@@ -278,16 +278,16 @@ export default function App() {
 
   useEffect(() => {
     const save = () => {
-      // 1) 同步写应急快照：一定能在卸载前完成
+      // 1) 同步写应急存档：一定能在卸载前完成
       try {
         const state = latestStateRef.current;
         if (state) {
           localStorage.setItem(EMERGENCY_KEY, JSON.stringify({ saved_at: Date.now(), state }));
         }
       } catch {
-        /* 配额/隐私模式：忽略，仍有下面的异步落盘兜底 */
+        /* 配额/隐私模式：忽略，仍有下面的异步落盘备用方案 */
       }
-      // 2) 异步补一次完整落盘（含快照等元数据）
+      // 2) 异步补一次完整落盘（含存档等元数据）
       void store.flush();
     };
     const onVisibility = () => {
@@ -328,11 +328,11 @@ export default function App() {
         return;
       }
       if (!sourceText.trim()) {
-        notify('err', '请先粘贴卡点前文，或点击“载入 4,200 字卡点样本”。');
+        notify('err', '请先粘贴前文，或点“载入示例前文”。');
         return;
       }
       const reuse = opts.reuse && agent1 && agent2;
-      await autoSnapshot(opts.planOnly ? '生成蓝图前' : '续写前');
+      await autoSnapshot(opts.planOnly ? '生成大纲前' : '续写前');
       setIsRunning(true);
       setStatuses(EMPTY_STATUSES);
       if (!opts.planOnly || !reuse) {
@@ -377,20 +377,20 @@ export default function App() {
         if (outcome.aborted) {
           notify('info', '已停止：已完成的内容已保留，可继续局部重写或导出。');
         } else if (opts.planOnly) {
-          notify('ok', `四拍蓝图已生成：${outcome.agent2.segment_outlines.length} 段，可逐拍修改后启动主笔。`);
+          notify('ok', `分段大纲已生成：${outcome.agent2.segment_outlines.length} 段，可以逐段修改后再点开始写。`);
           setView('segments');
         } else {
           const passedCount = outcome.segments.filter((s) => s.status === 'pass').length;
           const total = outcome.segments.length;
           notify(
             passedCount === total ? 'ok' : 'info',
-            `续写完成：${total} 段 / ${outcome.segments.reduce((n, s) => n + s.word_count, 0).toLocaleString()} 字，门禁通过 ${passedCount}/${total}。`,
+            `续写完成：${total} 段 / ${outcome.segments.reduce((n, s) => n + s.word_count, 0).toLocaleString()} 字，检查通过 ${passedCount}/${total}。`,
           );
           setView('segments');
         }
         return outcome;
       } catch (err) {
-        notify('err', `流水线中断：${err instanceof Error ? err.message : String(err)}`);
+        notify('err', `生成中断：${err instanceof Error ? err.message : String(err)}`);
         setStatuses((prev) => ({ ...prev, agent1: prev.agent1 === 'running' ? 'error' : prev.agent1 }));
         return null;
       } finally {
@@ -443,7 +443,7 @@ export default function App() {
     setRewritingIndex(null);
   }, [isRunning]);
 
-  /* --------------------------------------------------------- 蓝图编辑 */
+  /* --------------------------------------------------------- 大纲编辑 */
   const handleEditBeat = useCallback((segmentIndex: number, key: keyof Beats, value: string) => {
     setAgent2((prev) => {
       if (!prev) return prev;
@@ -453,7 +453,7 @@ export default function App() {
       });
       return { ...prev, segment_outlines: outlines };
     });
-    notify('info', `第 ${segmentIndex} 段【${BEAT_PREFIX[key]}】拍已更新，写作阶段将按新细纲执行。`);
+    notify('info', `第 ${segmentIndex} 段的「${BEAT_PREFIX[key]}」已更新，写正文时会按新大纲执行。`);
   }, [notify]);
 
   const handleRegenerate = useCallback(async () => {
@@ -466,7 +466,7 @@ export default function App() {
       void runPipelineFlow({ planOnly: true });
       return;
     }
-    await autoSnapshot('重新推演蓝图前');
+    await autoSnapshot('重新推演大纲前');
     setIsRunning(true);
     setAgent2(null);
     setSegments([]);
@@ -494,9 +494,9 @@ export default function App() {
       setSegments(outcome.segments);
       setLogs(outcome.logs);
       setProgress(outcome.progress);
-      notify('ok', '四拍蓝图已重新推演，请确认后启动主笔。');
+      notify('ok', '分段大纲已重新生成，确认后点「开始写」。');
     } catch (err) {
-      notify('err', `蓝图推演失败：${err instanceof Error ? err.message : String(err)}`);
+      notify('err', `大纲推演失败：${err instanceof Error ? err.message : String(err)}`);
     } finally {
       abortRef.current = null;
       setIsRunning(false);
@@ -553,7 +553,7 @@ export default function App() {
           uiLog(
             'agent4',
             result.gate.status === 'PASS' ? 'pass' : 'reject',
-            `第 ${index + 1} 段局部重写完成 · 门禁 ${result.gate.status} · ${countWords(result.text)} 字`,
+            `第 ${index + 1} 段局部重写完成 · 检查 ${result.gate.status} · ${countWords(result.text)} 字`,
           ),
         ]);
         setRewritingIndex(null);
@@ -561,8 +561,8 @@ export default function App() {
         notify(
           result.gate.status === 'PASS' ? 'ok' : 'info',
           result.gate.status === 'PASS'
-            ? `第 ${index + 1} 段重写完成并通过六道门禁。`
-            : `第 ${index + 1} 段已重写，但仍有门禁未通过，详见门禁报告。`,
+            ? `第 ${index + 1} 段重写完成并通过六项检查。`
+            : `第 ${index + 1} 段已重写，但仍有检查未通过，详见质检结果。`,
         );
       } catch (err) {
         if (controller.signal.aborted) notify('info', '已取消局部重写。');
@@ -583,7 +583,7 @@ export default function App() {
   /* ------------------------------------------------------------ 导出 */
   const exportMarkdown = useCallback(() => {
     downloadText(safeFilename(projectTitle, 'md'), buildMarkdown(buildState(), projectTitle), 'text/markdown;charset=utf-8');
-    notify('ok', '已导出 Markdown 完结版（含六道门禁报告）。');
+    notify('ok', '已导出 Markdown 完结版（含质检报告）。');
   }, [buildState, notify, projectTitle]);
 
   const exportTxt = useCallback(() => {
@@ -597,7 +597,7 @@ export default function App() {
       buildContractJson(buildState(), projectTitle),
       'application/json;charset=utf-8',
     );
-    notify('ok', '已导出 Agent 交接契约 JSON（可交给后端复现）。');
+    notify('ok', '已导出 Agent 交接数据 JSON（可交给后端复现）。');
   }, [buildState, notify, projectTitle]);
 
   const handleCopy = useCallback(async () => {
@@ -617,7 +617,7 @@ export default function App() {
         isApiConfigured(cfg) ? 'ok' : 'info',
         isApiConfigured(cfg)
           ? `已切换到真实模型：${cfg.model}${cfg.persistKey ? '（密钥已持久化）' : '（密钥仅本次会话有效）'}`
-          : '已清空密钥，将使用内置仿真引擎。',
+          : '已清空密钥，将使用内置模板演示。',
       );
     },
     [notify],
@@ -681,26 +681,26 @@ export default function App() {
 
   const handleSnapshot = useCallback(async () => {
     if (!projectId) {
-      notify('err', '请先保存一个作品再创建快照。');
+      notify('err', '请先保存一个作品再创建存档。');
       return;
     }
     const record = await store.upsert(projectId, projectTitle, buildState());
     setProjectId(record.id);
     await store.takeSnapshot(record.id, snapshotLabel(buildState()), buildState(), 'manual');
     await refreshSnapshots();
-    notify('ok', '已创建版本快照，可随时回滚。');
+    notify('ok', '已创建版本历史，可随时回滚。');
   }, [buildState, notify, projectId, projectTitle, refreshSnapshots, store]);
 
   const handleRestoreSnapshot = useCallback(
     async (snapshotId: string) => {
       const state = await store.restore(snapshotId);
       if (!state) {
-        notify('err', '快照读取失败。');
+        notify('err', '存档读取失败。');
         return;
       }
       applyState(state);
       setProjectsOpen(false);
-      notify('ok', '已回滚到快照版本（当前未保存的改动将被覆盖）。');
+      notify('ok', '已回滚到存档版本（当前未保存的改动将被覆盖）。');
     },
     [applyState, notify, store],
   );
@@ -709,10 +709,10 @@ export default function App() {
     try {
       const snaps = await store.allSnapshots();
       const archive = buildArchive(store.projects, snaps);
-      downloadText(`NovelFlow归档_${new Date().toISOString().slice(0, 10)}.json`, archive, 'application/json;charset=utf-8');
-      notify('ok', `已导出归档：${store.projects.length} 个作品 / ${snaps.length} 个快照`);
+      downloadText(`NovelFlow备份_${new Date().toISOString().slice(0, 10)}.json`, archive, 'application/json;charset=utf-8');
+      notify('ok', `已导出备份：${store.projects.length} 个作品 / ${snaps.length} 个存档`);
     } catch (err) {
-      notify('err', `导出归档失败：${err instanceof Error ? err.message : String(err)}`);
+      notify('err', `导出备份失败：${err instanceof Error ? err.message : String(err)}`);
     }
   }, [notify, store]);
 
@@ -731,7 +731,7 @@ export default function App() {
         await store.refresh();
         notify(
           'ok',
-          `已导入 ${count} 个作品 / ${parsed.snapshotCount} 个快照（${parsed.totalWords.toLocaleString()} 字）`,
+          `已导入 ${count} 个作品 / ${parsed.snapshotCount} 个存档（${parsed.totalWords.toLocaleString()} 字）`,
         );
         setProjectsOpen(true);
       } catch (err) {
@@ -753,7 +753,7 @@ export default function App() {
     setProgress(EMPTY_PROGRESS);
     setEngine('idle');
     setStatuses(EMPTY_STATUSES);
-    notify('info', '已载入 4,200 字卡点样本，可直接生成蓝图或一键续写。');
+    notify('info', '已载入 4,200 字卡点样本，可直接生成大纲或一键续写。');
   }, [isRunning, notify]);
 
   /* ------------------------------------------------------- 快捷键 */
@@ -882,8 +882,7 @@ export default function App() {
 
       <footer className="hidden shrink-0 items-center justify-between border-t border-line bg-paper-2 px-3 py-1 font-mono text-[9px] text-zinc-400 lg:flex">
         <span>
-          NovelFlow Studio v4.0 · 4-Agent 流水线 · 门禁判定在 <code>src/lib/gates.ts</code> · ⌘/Ctrl + Enter
-          一键续写
+          NovelFlow Studio v4.0 · 四步：读前文 → 出大纲 → 写正文 → 质检 · ⌘/Ctrl + Enter 一键续写
         </span>
         <span>
           前文 {diagnostics.chars.toLocaleString()} 字 · 续写 {producedWords.toLocaleString()} 字 ·{' '}

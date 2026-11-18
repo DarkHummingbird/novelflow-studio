@@ -90,16 +90,16 @@ const LOG_TONE: Record<LogEntry['level'], string> = {
 };
 
 const STATUS_BADGE: Record<SegmentDraft['status'], { tone: 'neutral' | 'amber' | 'emerald' | 'rose' | 'indigo'; label: string }> = {
-  pending: { tone: 'neutral', label: '排队中' },
-  writing: { tone: 'indigo', label: '撰写中' },
-  pass: { tone: 'emerald', label: '门禁 PASS' },
-  rejected: { tone: 'rose', label: '门禁 REJECT' },
-  forced: { tone: 'amber', label: '按上限保留' },
+  pending: { tone: 'neutral', label: '等待中' },
+  writing: { tone: 'indigo', label: '正在写' },
+  pass: { tone: 'emerald', label: '质检通过' },
+  rejected: { tone: 'rose', label: '需要重写' },
+  forced: { tone: 'amber', label: '没通过，先保留' },
 };
 
 const SOURCE_LABEL: Record<SegmentDraft['source'], string> = {
   llm: '模型撰写',
-  simulation: '仿真引擎',
+  simulation: '模板演示',
   sample: '示例脚本',
 };
 
@@ -156,19 +156,19 @@ export function ReaderPanel(props: ReaderPanelProps) {
             </IconButton>
           )}
           <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" />
-          <h2 className="truncate text-xs font-bold text-ink">3. 续写长文与门禁精修台</h2>
+          <h2 className="truncate text-xs font-bold text-ink">3. 正文与修改</h2>
           <Badge tone={produced > 0 ? 'emerald' : 'neutral'}>{produced.toLocaleString()} 字</Badge>
           {segments.length > 0 && (
             <Badge tone={passed === segments.length ? 'emerald' : 'amber'}>
-              门禁 {passed}/{segments.length}
+              检查 {passed}/{segments.length}
             </Badge>
           )}
           {engine !== 'idle' && (
             <Badge
               tone={engine === 'live' ? 'indigo' : 'neutral'}
-              title={engine === 'live' ? '全部文案来自真实模型' : '未配置 API Key：文案由内置仿真引擎生成'}
+              title={engine === 'live' ? '全部文案来自真实模型' : '未配置 API Key：文案由内置模板演示生成'}
             >
-              {engine === 'live' ? '真实模型' : '仿真引擎'}
+              {engine === 'live' ? '真实模型' : '模板演示'}
             </Badge>
           )}
         </div>
@@ -181,9 +181,9 @@ export function ReaderPanel(props: ReaderPanelProps) {
           <div className="flex items-center rounded-lg border border-line bg-paper-3 p-0.5 text-[10px]">
             {(
               [
-                ['segments', '分段精修'],
-                ['full', '全篇连读'],
-                ['report', '门禁报告'],
+                ['segments', '分段看'],
+                ['full', '整篇读'],
+                ['report', '质检结果'],
               ] as [ReaderView, string][]
             ).map(([id, label]) => (
               <button
@@ -199,7 +199,7 @@ export function ReaderPanel(props: ReaderPanelProps) {
             ))}
           </div>
 
-          <IconButton title="复制完整稿（Markdown）" onClick={onCopy} disabled={produced === 0}>
+          <IconButton title="复制整篇（Markdown）" onClick={onCopy} disabled={produced === 0}>
             {copied ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
           </IconButton>
           <button
@@ -228,7 +228,7 @@ export function ReaderPanel(props: ReaderPanelProps) {
               className="hidden items-center gap-1 rounded-lg border border-line bg-white px-2 py-1.5 font-mono text-[10px] font-semibold text-zinc-800 hover:border-line-strong disabled:opacity-40 sm:flex"
             >
               <FileJson className="h-3 w-3" />
-              契约
+              交接数据
             </button>
           )}
         </div>
@@ -275,12 +275,12 @@ export function ReaderPanel(props: ReaderPanelProps) {
           ) : (
             <EmptyState
               icon={<BookOpen className="h-8 w-8" />}
-              title="短故事续写与门禁精修舞台"
+              title="在这里生成和修改正文"
               desc={
                 <>
-                  点击顶部 <strong className="text-zinc-800">“一键全自动续写”</strong>
-                  ，流水线将依次完成清洗、诱饵诊断、四拍蓝图、滑动窗口撰写与六道门禁。
-                  每段都会给出可追溯的门禁判定，未通过时会带着修改指令自动返工。
+                  粘贴前文后点顶部 <strong className="text-zinc-800">“一键全自动续写”</strong>
+                  ，系统会依次做：清洗前文 → 判断悬念类型 → 出分段大纲 → 写正文 → 质检。
+                  每段都有检查记录，没过会自动带着修改意见重写。
                 </>
               }
             />
@@ -302,7 +302,7 @@ export function ReaderPanel(props: ReaderPanelProps) {
                         <Badge tone="neutral" title="本段文案来源">
                           {SOURCE_LABEL[segment.source]}
                         </Badge>
-                        {segment.attempts > 1 && <Badge tone="rose">返工 {segment.attempts - 1} 次</Badge>}
+                        {segment.attempts > 1 && <Badge tone="rose">重写 {segment.attempts - 1} 次</Badge>}
                       </div>
                       <h3 className="mt-1 font-serif text-base font-bold text-ink">{segment.title}</h3>
                     </div>
@@ -358,7 +358,7 @@ export function ReaderPanel(props: ReaderPanelProps) {
                         </button>
                       </div>
                       <p className="text-[10px] text-indigo-900/70">
-                        重写后会立即重跑六道门禁；不会重新生成其它段落，也不会改动蓝图。
+                        重写后会立即重跑六项检查；不会重新生成其它段落，也不会改动大纲。
                       </p>
                     </div>
                   )}
@@ -370,7 +370,7 @@ export function ReaderPanel(props: ReaderPanelProps) {
                       ))}
                     </div>
                   ) : (
-                    <p className="mt-3 text-[11px] text-zinc-400">等待上一步完成…</p>
+                    <p className="mt-3 text-[11px] text-zinc-400">等上面那一步完成…</p>
                   )}
 
                   {segment.gate && (segment.status === 'forced' || segment.status === 'rejected') && (
@@ -435,16 +435,16 @@ export function ReaderPanel(props: ReaderPanelProps) {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-line bg-white p-3">
               <div>
-                <p className="text-xs font-bold text-zinc-900">六道商业门禁质检报告</p>
+                <p className="text-xs font-bold text-zinc-900">质检报告</p>
                 <p className="mt-0.5 text-[10px] text-zinc-500">
                   判定由确定性引擎执行（字数/实体/人称/衔接/套话/金句），报告可随稿件一起导出。
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <Badge tone={passed === segments.length ? 'emerald' : 'amber'}>
-                  PASS {passed} / {segments.length}
+                  通过 {passed} / {segments.length}
                 </Badge>
-                {segments.some((s) => s.source === 'simulation') && <Badge tone="neutral">含仿真稿</Badge>}
+                {segments.some((s) => s.source === 'simulation') && <Badge tone="neutral">含模板演示稿</Badge>}
               </div>
             </div>
 
@@ -457,7 +457,7 @@ export function ReaderPanel(props: ReaderPanelProps) {
                     <Badge
                       tone={segment.gate?.status === 'PASS' ? 'emerald' : segment.gate ? 'rose' : 'neutral'}
                     >
-                      {segment.gate?.status ?? '未质检'}
+                      {segment.gate ? (segment.gate.status === 'PASS' ? '通过' : '需重写') : '未质检'}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2">
@@ -466,7 +466,7 @@ export function ReaderPanel(props: ReaderPanelProps) {
                   </div>
                 </div>
                 <div className="pt-2">
-                  {segment.gate ? <GateRows gate={segment.gate} /> : <p className="text-[10px] text-zinc-400">该段尚未质检</p>}
+                  {segment.gate ? <GateRows gate={segment.gate} /> : <p className="text-[10px] text-zinc-400">这一段还没检查</p>}
                 </div>
                 {segment.gate && segment.gate.revision_instructions.length > 0 && (
                   <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/70 p-2">
@@ -519,7 +519,7 @@ function ShowcaseView({ data, onConfigure }: { data: ShowcaseData; onConfigure: 
             静态示例 · 内置样本的已完成稿（{total.toLocaleString()} 字）
           </p>
           <p className="mt-0.5 text-[10px] leading-relaxed text-amber-900/80">
-            这是预先跑好的结果，<strong>不是本次生成</strong>。下方的门禁 PASS/FAIL 由真实门禁引擎现算，
+            这是预先跑好的结果，<strong>不是本次生成</strong>。下方的“通过/需重写”由真实检查规则现算，
             与你自己跑出来的判定规则完全一致。
           </p>
         </div>
@@ -540,7 +540,7 @@ function ShowcaseView({ data, onConfigure }: { data: ShowcaseData; onConfigure: 
                 <Badge tone="amber">{segment.segment_role}</Badge>
                 <Badge tone="neutral">示例</Badge>
                 <Badge tone={segment.gate?.status === 'PASS' ? 'emerald' : 'rose'}>
-                  {segment.gate?.status ?? '未质检'}
+                  {segment.gate ? (segment.gate.status === 'PASS' ? '通过' : '需重写') : '未质检'}
                 </Badge>
               </div>
               <h3 className="mt-1 font-serif text-base font-bold text-ink">{segment.title}</h3>
@@ -578,7 +578,7 @@ function GateDetail({ gate, defaultOpen }: { gate: NonNullable<SegmentDraft['gat
     <details open={defaultOpen} className="mt-2 rounded-xl border border-line bg-paper p-2">
       <summary className="flex cursor-pointer list-none items-center gap-1 text-[10px] font-bold text-zinc-700">
         <ChevronDown className="h-3 w-3" />
-        六道门禁明细（{gate._meta.judged_by === 'code+llm' ? '代码 + 模型复审' : '确定性引擎'}）
+        六项检查明细（{gate._meta.judged_by === 'code+llm' ? '代码 + 模型复审' : '确定性引擎'}）
         <ChevronRight className="ml-auto h-3 w-3 text-zinc-400" />
       </summary>
       <div className="pt-1.5">

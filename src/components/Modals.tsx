@@ -81,9 +81,9 @@ export function ApiModal({
         <header className="flex items-center justify-between border-b border-line px-5 py-3">
           <div className="flex items-center gap-2">
             <Settings className="h-4 w-4 text-amber-600" />
-            <h3 className="text-sm font-bold text-ink">BYOK · 大模型接入配置</h3>
+            <h3 className="text-sm font-bold text-ink">自带模型 · 大模型接入配置</h3>
             <Badge tone={config.apiKey ? 'emerald' : 'neutral'}>
-              {config.apiKey ? '已配置' : '未配置（仿真引擎）'}
+              {config.apiKey ? '已配置' : '未配置（模板演示）'}
             </Badge>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1 text-zinc-500 hover:bg-paper-3">
@@ -176,7 +176,7 @@ export function ApiModal({
                 type={showKey ? 'text' : 'password'}
                 value={draft.apiKey}
                 onChange={(e) => setDraft({ ...draft, apiKey: e.target.value })}
-                placeholder="粘贴 API Key；留空则使用内置仿真引擎"
+                placeholder="粘贴 API Key；留空则使用内置模板演示"
                 autoComplete="off"
                 className="w-full rounded-xl border border-line-strong bg-paper px-2.5 py-2 pr-9 font-mono text-[11px] text-ink outline-none"
               />
@@ -300,10 +300,10 @@ export function ApiModal({
 /* --------------------------------------------------------- Agent 检查器 */
 
 const INSPECT_TABS = [
-  { id: 'prompt', label: '系统提示词', icon: Code2 },
-  { id: 'contract', label: '输出契约', icon: FileJson },
-  { id: 'payload', label: '实时载荷', icon: Terminal },
-  { id: 'skills', label: '挂载技能', icon: Settings },
+  { id: 'prompt', label: '给模型的指令', icon: Code2 },
+  { id: 'contract', label: '输出格式', icon: FileJson },
+  { id: 'payload', label: '这一轮的数据', icon: Terminal },
+  { id: 'skills', label: '用到的规则', icon: Settings },
 ] as const;
 
 type InspectTab = (typeof INSPECT_TABS)[number]['id'];
@@ -423,7 +423,7 @@ export function AgentInspector({
               {agentId === 'agent4' && (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
                   <p className="text-[10px] leading-relaxed text-emerald-900">
-                    六道门禁的判定由 <code>src/lib/gates.ts</code> 中的确定性函数执行，
+                    六项检查的判定由 <code>src/lib/gates.ts</code> 中的确定性函数执行，
                     可用 <code>npm test</code> 复现；LLM 复审只在用户开启时叠加，且不能推翻代码判定的 FAIL。
                   </p>
                   <div className="mt-1.5 grid grid-cols-2 gap-1 text-[10px] text-emerald-900">
@@ -517,18 +517,18 @@ export function ProjectsDrawer({
               type="button"
               onClick={onExportArchive}
               disabled={projects.length === 0}
-              title="把全部作品与快照导出为一个 JSON 归档"
+              title="把全部作品与存档导出为一个 JSON 备份"
               className="flex items-center gap-1 rounded-lg border border-line bg-white px-2 py-1.5 text-[10px] font-semibold text-zinc-700 hover:border-line-strong disabled:opacity-40"
             >
               <Download className="h-3 w-3" />
               导出全部
             </button>
             <label
-              title="从归档 JSON 恢复作品与快照（重复会另存为新作品）"
+              title="从备份 JSON 恢复作品与存档（重复会另存为新作品）"
               className="flex cursor-pointer items-center gap-1 rounded-lg border border-line bg-white px-2 py-1.5 text-[10px] font-semibold text-zinc-700 hover:border-line-strong"
             >
               <Upload className="h-3 w-3" />
-              导入归档
+              导入备份
               <input
                 type="file"
                 accept=".json,application/json"
@@ -590,7 +590,7 @@ export function ProjectsDrawer({
                     <button
                       type="button"
                       onClick={() => onDelete(project.id)}
-                      title="删除该项目及其快照"
+                      title="删除该项目及其存档"
                       className="rounded p-1 text-zinc-400 hover:bg-rose-50 hover:text-rose-600"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -604,7 +604,7 @@ export function ProjectsDrawer({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <p className="text-[11px] font-bold text-zinc-800">
-                版本快照（{snapshots.length}/{snapshotLimit}）
+                版本历史（{snapshots.length}/{snapshotLimit}）
               </p>
               <button
                 type="button"
@@ -613,12 +613,12 @@ export function ProjectsDrawer({
                 className="flex items-center gap-1 rounded-lg border border-line bg-white px-2 py-1 text-[10px] font-semibold text-zinc-700 hover:border-line-strong disabled:opacity-40"
               >
                 <History className="h-3 w-3" />
-                快照当前
+                保存当前版本
               </button>
             </div>
             {snapshots.length === 0 && (
               <p className="rounded-xl border border-dashed border-line-strong bg-paper p-4 text-center text-[10px] text-zinc-500">
-                尚无快照。生成正文后点击“快照当前”，可在改写前保留可回滚的版本。
+                尚无存档。生成正文后点击“保存当前版本”，可在改写前保留可回滚的版本。
               </p>
             )}
             {snapshots.map((snap) => (
@@ -656,12 +656,12 @@ export function ProjectsDrawer({
             {persistence === 'idb' ? (
               <>
                 <Check className="h-3 w-3 text-emerald-600" />
-                数据只存在本机浏览器，不会上传；换浏览器/清缓存会丢失 → 用「导出全部」把作品与快照一起带走
+                数据只存在本机浏览器，不会上传；换浏览器/清缓存会丢失 → 用「导出全部」把作品与存档一起带走
               </>
             ) : (
               <>
                 <AlertTriangle className="h-3 w-3 text-amber-600" />
-                当前浏览器禁用 IndexedDB，草稿仅保存在内存中，刷新即丢失，请及时导出归档
+                当前浏览器禁用 IndexedDB，草稿仅保存在内存中，刷新即丢失，请及时导出备份
               </>
             )}
           </p>
@@ -676,5 +676,5 @@ export function ProjectsDrawer({
 
 export function snapshotLabel(state: ProjectState): string {
   const words = state.segments.reduce((n, s) => n + s.word_count, 0);
-  return `快照 · ${new Date().toLocaleTimeString('zh-CN')} · ${words} 字`;
+  return `存档 · ${new Date().toLocaleTimeString('zh-CN')} · ${words} 字`;
 }

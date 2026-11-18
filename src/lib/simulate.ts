@@ -306,6 +306,10 @@ export function simulateSegment(ctx: SimContext): string {
   const push = (text: string) => {
     if (text.trim()) blocks.push(`${text.trim()}${detail()}`);
   };
+  /** 收尾金句不挂装饰句，否则"最后一句"会被细节句顶掉 */
+  const pushRaw = (text: string) => {
+    if (text.trim()) blocks.push(text.trim());
+  };
 
   // 起：先兑现
   push(paragraphOf(OPENERS, slots, baseSeed));
@@ -339,7 +343,7 @@ export function simulateSegment(ctx: SimContext): string {
       `${slots.B}的名字从所有公开的名单上消失了，${slots.C}接手了剩下的事务，第一件事是把账本交到${slots.A === '我' ? '我' : slots.A}手上。`,
     );
     push(paragraphOf(CLOSERS, slots, baseSeed + 21));
-    push(pick(PUNCHLINES, baseSeed)());
+    pushRaw(pick(PUNCHLINES, baseSeed)());
   } else {
     push(paragraphOf(CLOSERS, slots, baseSeed + 23));
     push(`事情到这里还只是第一层。${slots.prop}里少了一页，而那一页上的名字，才是今晚真正没有现身的人。`);

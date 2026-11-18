@@ -58,19 +58,19 @@ try {
   await app.waitForText('真实模型', 10000);
 
   console.log('4) Agent 01 + 02（真实 JSON 往返）');
-  await app.clickAny(['生成商业三段式细纲', '重新生成四拍蓝图']);
-  await app.waitForText('四拍续写蓝图', 90000);
+  await app.clickAny(['生成分段大纲', '重新生成大纲']);
+  await app.waitForText('分段大纲', 90000);
   const blueprint = await app.bodyText();
   if (!blueprint.includes('主编模型')) throw new Error('蓝图不是来自模型（判定来源应为主编模型）');
   await app.screenshot('/tmp/nf_r3_blueprint.png');
 
-  console.log('5) Agent 03 流式撰写 + Agent 04 门禁');
-  await app.clickAny(['确认蓝图并启动主笔续写', '按当前蓝图重写正文']);
-  await app.waitForText('六道门禁', 120000);
+  console.log('5) 第 3 步 流式写正文 + 第 4 步 质检');
+  await app.clickAny(['确认大纲，开始写', '按当前大纲重写正文']);
+  await app.waitForText('质检', 120000);
   await app.waitForText('全部段落撰写与质检完成', 180000);
   await new Promise((r) => setTimeout(r, 1200));
   const body = await app.bodyText();
-  if (!/门禁\s*PASS/.test(body) && !body.includes('按上限保留')) throw new Error('门禁未产出');
+  if (!/质检通过/.test(body) && !body.includes('没通过，先保留')) throw new Error('质检结果未产出');
   if (!body.includes('模型撰写')) throw new Error('正文来源不是模型（应显示“模型撰写”）');
   if (body.includes('仿真引擎')) throw new Error('仍然走的是仿真引擎，说明配置未生效');
   await app.screenshot('/tmp/nf_r4_written.png');

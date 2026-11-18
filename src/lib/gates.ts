@@ -1,8 +1,8 @@
 /**
- * 六道商业门禁 —— 确定性判定引擎（PRD §4.4）。
+ * 六项检查 —— 确定性判定引擎（PRD §4.4）。
  *
- * 设计原则：**门禁的判定权在代码，不在模型。**
- * v4.0 原型里 Agent 4 恒返回 PASS，六道门禁实际只实现了"套话子串匹配"一条。
+ * 设计原则：**检查的判定权在代码，不在模型。**
+ * v4.0 原型里 Agent 4 恒返回 PASS，六项检查实际只实现了"套话子串匹配"一条。
  * 这里把六条全部落成可复现、可单测的硬判定：
  *   1 字数达标        → countWords ≥ target × 85%
  *   2 前 800 字兑现   → 实体/主语 + 兑现动词 + 无回忆杀开场
@@ -94,17 +94,17 @@ export function evaluateGates(ctx: GateContext): GateResult {
   /* ---------------------------------------------------- 1. 字数达标 */
   const threshold = Math.round(outline.target_words * 0.85);
   gates.word_count_ok = actual >= threshold;
-  details.word_count_ok = `实际 ${actual} 字 / 目标 ${outline.target_words} 字 / 阈值 ${threshold} 字（85%）`;
+  details.word_count_ok = `实际 ${actual} 字，目标 ${outline.target_words} 字，至少要 ${threshold} 字`;
   if (!gates.word_count_ok) {
     instructions.push(
-      `字数不足：当前 ${actual} 字，需至少 ${threshold} 字。请补足具体动作交锋、微表情变化与个性化台词，禁止概括式流水账。`,
+      `字数不够：现在 ${actual} 字，至少要 ${threshold} 字。请补上具体的动作、对话和细节，不要只写概括。`,
     );
   }
 
   /* ------------------------------------------------ 2. 前 800 字兑现 */
   if (index !== 0) {
     gates.instant_payoff_800_ok = true;
-    details.instant_payoff_800_ok = '非首段，本门禁不适用（PASS）';
+    details.instant_payoff_800_ok = '不是第一段，这项不检查';
   } else {
     const head800 = draft.slice(0, 800);
     const headFlat = squash(head800);
@@ -117,14 +117,14 @@ export function evaluateGates(ctx: GateContext): GateResult {
 
     gates.instant_payoff_800_ok = (entityHit || selfRef) && verbHit && !dragOpen && longEnough;
     details.instant_payoff_800_ok = [
-      `前800字长度 ${headFlat.length} 字`,
-      entityHit ? `锚点实体命中(${entities.slice(0, 3).join('/') || '无可用实体'})` : '锚点实体未命中',
-      verbHit ? '兑现动作命中' : '缺少兑现动作',
-      dragOpen ? '以回忆杀开场' : '无回忆杀开场',
+      `开头 ${headFlat.length} 字`,
+      entityHit ? `提到了关键人物（${entities.slice(0, 3).join('、') || '无'}）` : '没提到关键人物',
+      verbHit ? '给了结果' : '只铺垫没给结果',
+      dragOpen ? '用回忆开场' : '没有用回忆开场',
     ].join(' · ');
     if (!gates.instant_payoff_800_ok) {
       instructions.push(
-        '首段未在前 800 字内正面兑现卡点：请直接给出结果（亮出证据/宣布决定/说出口），删掉回忆与景物铺垫。',
+        '开头没在 800 字内给出结果：请直接写结果（亮证据、宣布决定、把话说出口），删掉回忆和景物铺垫。',
       );
     }
   }
@@ -144,14 +144,16 @@ export function evaluateGates(ctx: GateContext): GateResult {
   const adversaryPresent = adversaryNames.length === 0 ? true : adversaryNames.some((n) => draft.includes(n));
   gates.character_pov_ok = povOk && adversaryPresent;
   details.character_pov_ok = [
-    `${firstPerson ? '第一人称' : '第三人称'}校验：我×${selfCount} / 他她×${thirdCount}`,
-    adversaryNames.length ? `反派实体 ${adversaryNames.join('、')} ${adversaryPresent ? '已出场' : '未出场'}` : '无具名反派',
+    `${firstPerson ? '第一人称' : '第三人称'}：出现“我” ${selfCount} 次、“他/她” ${thirdCount} 次`,
+    adversaryNames.length
+      ? `反派 ${adversaryNames.join('、')} ${adversaryPresent ? '已经出场' : '没有出场'}`
+      : '没有具名反派',
   ].join(' · ');
   if (!gates.character_pov_ok) {
     instructions.push(
       povOk
-        ? '反派实体未出场：请让对手在本段真实现身（台词或动作），不要只用代词指代。'
-        : '人称视角漂移：请严格保持 Story Bible 中的人称叙述，不要中途切视角。',
+        ? '反派没有出场：请让对手真的出现（有台词或动作），不要只用“他”代替。'
+        : '人称乱了：请保持设定里的第一人称或第三人称，不要中途换视角。',
     );
   }
 
@@ -166,14 +168,14 @@ export function evaluateGates(ctx: GateContext): GateResult {
 
   gates.seamless_bridge_ok = !titleLike && !metaPhrase && !copied && !startsWithPunct;
   details.seamless_bridge_ok = [
-    titleLike ? '残留章节标题' : '无标题残留',
-    metaPhrase ? '出现元叙述' : '无元叙述',
-    copied ? '复制了上文末尾' : '未复制上文',
-    startsWithPunct ? '以标点开头' : '首字为汉字',
+    titleLike ? '还带着章节标题' : '没有标题残留',
+    metaPhrase ? '出现了“续写/上文”这类话' : '没有多余的说明话',
+    copied ? '照抄了上一段结尾' : '没有照抄上一段',
+    startsWithPunct ? '第一个字是标点' : '第一个字是正文',
   ].join(' · ');
   if (!gates.seamless_bridge_ok) {
     instructions.push(
-      '首句衔接生硬：删除章节标题/元叙述，第一句直接承接上文最后一秒的动作或对话，不要复制上文原句。',
+      '接不上上一段：删掉标题和说明，第一句直接接住上一段的动作或对话，不要照抄原句。',
     );
   }
 
@@ -185,14 +187,14 @@ export function evaluateGates(ctx: GateContext): GateResult {
   const rr = repeatRatio(draft, nGram);
   gates.anti_cliche_ok = clicheHits.length === 0 && rr < 0.18;
   details.anti_cliche_ok = [
-    `套话命中 ${clicheHits.length} 处${clicheHits.length ? `（${clicheHits.slice(0, 3).join('、')}）` : ''}`,
-    `${nGram}-gram 重复率 ${(rr * 100).toFixed(1)}%（阈值 18%）`,
+    `套话 ${clicheHits.length} 处${clicheHits.length ? `（${clicheHits.slice(0, 3).join('、')}）` : ''}`,
+    `重复用词 ${(rr * 100).toFixed(1)}%（超过 18% 就判为凑字数）`,
   ].join(' · ');
   if (!gates.anti_cliche_ok) {
     instructions.push(
       clicheHits.length
-        ? `删除 AI 套话：${clicheHits.slice(0, 4).join('、')}，用具体动作与台词替换。`
-        : `车轱辘话注水（10-gram 重复率 ${(rr * 100).toFixed(1)}%）：请删掉复述式句子，换入新信息。`,
+        ? `删掉套话：${clicheHits.slice(0, 4).join('、')}，换成具体的动作和台词。`
+        : `重复太多（重复用词 ${(rr * 100).toFixed(1)}%）：请删掉反复复述的句子，换点新内容。`,
     );
   }
 
@@ -200,7 +202,7 @@ export function evaluateGates(ctx: GateContext): GateResult {
   let quote = '';
   if (index !== total - 1) {
     gates.golden_ending_ok = true;
-    details.golden_ending_ok = '非终段，本门禁不适用（PASS）';
+    details.golden_ending_ok = '不是最后一段，这项不检查';
   } else {
     const paras = splitParagraphs(draft);
     const lastPara = paras.length ? paras[paras.length - 1] : '';
@@ -211,14 +213,14 @@ export function evaluateGates(ctx: GateContext): GateResult {
     const notSerial = !/(未完|待续|下一章|下集)/.test(quote);
     gates.golden_ending_ok = lenOk && declarative && notSerial && lastPara.length >= 20;
     details.golden_ending_ok = [
-      `末句 ${quote.length} 字`,
-      lenOk ? '长度合规(8–60)' : '长度不合规',
-      declarative ? '陈述句收尾' : '非陈述句/无终止标点',
-      notSerial ? '无连载尾巴' : '残留连载尾巴',
+      `最后一句 ${quote.length} 字`,
+      lenOk ? '长度合适（8–60）' : '长度不合适',
+      declarative ? '是完整的陈述句' : '不是完整的陈述句',
+      notSerial ? '没有“未完待续”' : '还挂着连载尾巴',
     ].join(' · ');
     if (!gates.golden_ending_ok) {
       instructions.push(
-        '终局金句未锁定：最后一段必须以一句 8–60 字、可截图传播的陈述性金句收尾，不要用问句或“未完待续”。',
+        '结尾没有金句：最后一段要用一句 8–60 字、值得截图转发的话收尾，不要用问句或“未完待续”。',
       );
     }
   }
@@ -248,7 +250,7 @@ export function evaluateGates(ctx: GateContext): GateResult {
 
 /**
  * 合并可选的 LLM 复审：**代码判定永远是权威**。
- * 模型只能补充修改指令与摘要，不能把代码判 FAIL 的段落放行（防止无限返工与"放水"）。
+ * 模型只能补充修改指令与摘要，不能把代码判 FAIL 的段落放行（防止无限重写与"放水"）。
  */
 export function mergeLLMReview(
   codeGate: GateResult,

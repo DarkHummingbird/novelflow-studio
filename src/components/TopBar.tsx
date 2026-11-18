@@ -99,7 +99,7 @@ export function TopBar(props: TopBarProps) {
                   key={spec.id}
                   type="button"
                   onClick={() => onInspect(spec.id)}
-                  title={`${spec.name} — 点击查看 System Prompt / 契约 / 实时载荷`}
+                  title={`${spec.name} — 点击查看 System Prompt / 数据格式 / 实际数据`}
                   className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] font-medium transition-all ${STATUS_STYLE[status]}`}
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${DOT_STYLE[status]}`} />
@@ -116,7 +116,7 @@ export function TopBar(props: TopBarProps) {
           <button
             type="button"
             onClick={onOpenProjects}
-            title="作品草稿箱：多项目、快照、回滚"
+            title="作品草稿箱：多项目、存档、回滚"
             className="hidden items-center gap-1.5 rounded-xl border border-line bg-white px-2.5 py-1.5 text-[11px] font-semibold text-zinc-700 hover:border-line-strong sm:flex"
           >
             <Database className="h-3.5 w-3.5 text-indigo-600" />
@@ -147,7 +147,7 @@ export function TopBar(props: TopBarProps) {
               }`}
             >
               <Code2 className="h-3.5 w-3.5 text-emerald-400" />
-              <span>架构师</span>
+              <span>开发视图</span>
             </button>
           </div>
 
@@ -159,7 +159,7 @@ export function TopBar(props: TopBarProps) {
                 ? 'border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100'
                 : 'border-line bg-white text-zinc-700 hover:border-line-strong'
             }`}
-            title="BYOK：配置模型 API（仅保存在本地浏览器）"
+            title="自带模型：配置模型 API（仅保存在本地浏览器）"
           >
             <Settings className={`h-3.5 w-3.5 ${apiConfigured ? 'text-emerald-600' : 'text-zinc-500'}`} />
             <span className="hidden max-w-[150px] truncate sm:inline">
@@ -194,11 +194,11 @@ export function TopBar(props: TopBarProps) {
             type="button"
             onClick={onPlan}
             disabled={isRunning || !canRun}
-            title={canRun ? '仅生成/重推四拍蓝图（不写正文）' : '需要先配置模型 API'}
+            title={canRun ? '仅生成/重推分段大纲（不写正文）' : '需要先配置模型 API'}
             className="hidden items-center gap-1 rounded-xl border border-line bg-white px-2 py-1.5 text-[11px] font-semibold text-zinc-700 hover:border-line-strong disabled:opacity-40 lg:flex"
           >
             <Sparkles className="h-3.5 w-3.5 text-amber-600" />
-            蓝图
+            大纲
           </button>
 
           <button
@@ -213,16 +213,16 @@ export function TopBar(props: TopBarProps) {
         </div>
       </div>
 
-      {/* 架构师视图的契约提示条 */}
+      {/* 开发视图的数据格式提示条 */}
       {mode === 'architect' && (
         <div className="border-t border-line bg-zinc-900 px-3 py-1">
           <div className="mx-auto flex max-w-[1920px] items-center gap-2 font-mono text-[10px] text-emerald-300">
             <FileJson className="h-3 w-3 shrink-0" />
             <span className="truncate">
-              契约模式：Agent1Payload → Agent2Payload → Agent3Draft → GateResult ｜ 判定权在确定性门禁引擎，模型仅补充修订建议
+              开发视图：能看到每一步的输入输出（读前文 → 出大纲 → 写正文 → 质检）｜ 合格与否由代码判定，模型只负责写
             </span>
             <span className="ml-auto hidden shrink-0 items-center gap-1 text-amber-300 sm:flex">
-              <Play className="h-2.5 w-2.5" /> 点击顶部 Agent 查看提交载荷
+              <Play className="h-2.5 w-2.5" /> 点击顶部 Agent 查看提交数据
             </span>
           </div>
         </div>
