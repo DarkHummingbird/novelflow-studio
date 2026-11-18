@@ -16,6 +16,8 @@
 
 ## 1. 这是什么
 
+> 谁会用、什么时刻用、用完得到什么 → 见 [docs/USER-SCENARIOS.md](docs/USER-SCENARIOS.md)（含场景卡片、功能映射、劝退清单）
+
 给短篇网文作者 / 推文工作室用的一条工业化流水线：把停在 30%–45% 付费卡点的那段免费前文丢进去，产出带「前 800 字正面兑现 → 二次反转 → 终局金句」商业结构的完结稿，并且**每一段都附一份可复现的六道门禁质检报告**。
 
 和市面上「套个大模型提示词」的区别在于：结构判定、字数、重复率、套话、衔接、金句全部由**确定性代码**执行，模型只负责写，不负责给自己打分。
@@ -136,7 +138,7 @@ src/
   hooks/    useProjectStore.ts
 tests/      core.test.ts、api.test.ts
 scripts/    inline-build.mjs（单文件内联）、serve.mjs（零依赖静态服务）、smoke.mjs（CDP 冒烟）
-docs/       PRD-TRACE.md（PRD → 代码映射）、screenshots/
+docs/       PRD-TRACE.md（PRD → 代码映射）、USER-SCENARIOS.md（用户需求场景）、screenshots/
 ```
 
 ## 9. 能力边界（诚实版）
