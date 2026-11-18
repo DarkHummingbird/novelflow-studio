@@ -1,6 +1,8 @@
-# NovelFlow Studio v4.0
+# 续章工坊 · NovelFlow Studio
 
-商业短故事「付费卡点续写」工作台 —— 从卡点前文到可交付完结稿的多 Agent 流水线。
+**商业短故事「付费卡点续写」工作台** —— 把停在付费卡点前的那段正文，续写成可交付的完结稿。
+
+4-Agent 流水线（摄取网关 → 主编 → 主笔 → 门禁）+ 六道确定性门禁：模型只负责写，结构与质检由代码判定。
 
 [![Deploy demo](https://github.com/DarkHummingbird/novelflow-studio/actions/workflows/pages.yml/badge.svg)](https://github.com/DarkHummingbird/novelflow-studio/actions/workflows/pages.yml)
 [![在线预览](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E9%A2%84%E8%A7%88-darkhummingbird.github.io-0ea5e9)](https://darkhummingbird.github.io/novelflow-studio/)
