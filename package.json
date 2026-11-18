@@ -1,0 +1,39 @@
+{
+  "name": "novelflow-studio",
+  "private": true,
+  "version": "4.0.0",
+  "type": "module",
+  "description": "NovelFlow Studio — 商业短故事付费卡点续写工作台",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:standalone": "npm run build && node scripts/inline-build.mjs",
+    "start": "node scripts/serve.mjs",
+    "preview": "vite preview --port 4173",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "smoke": "node scripts/smoke.mjs",
+    "verify": "npm run typecheck && npm test && npm run build:standalone",
+    "smoke:longform": "node scripts/smoke-longform.mjs",
+    "proxy": "node scripts/proxy.mjs",
+    "smoke:real": "node scripts/smoke-real.mjs",
+    "fake-upstream": "node scripts/lib/fake-upstream.mjs",
+    "smoke:durability": "node scripts/smoke-durability.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^1.75.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
+  }
+}

@@ -1,0 +1,182 @@
+/**
+ * 端到端冒烟（标准流程）：真实点击一遍主链路，并逐一验证四种导出。
+ */
+import path from 'node:path';
+import { mkdtemp, readdir, readFile } from 'node:fs/promises';
+import os from 'node:os';
+import { launch, sleep } from './lib/cdp.mjs';
+
+const target = process.argv[2] ?? 'dist/novelflow-studio-standalone.html';
+const url = target.startsWith('http') ? target : `file://${path.resolve(target)}`;
+const downloadDir = await mkdtemp(path.join(os.tmpdir(), 'nf-dl-'));
+
+const app = await launch({ url, port: 9333 });
+await app.enableDownloads(downloadDir);
+await app.send('DOM.enable');
+
+async function downloadByClick(label, ext, timeout = 15000) {
+  const before = new Set(await readdir(downloadDir));
+  await app.clickAny([label]);
+  const started = Date.now();
+  while (Date.now() - started < timeout) {
+    await sleep(200);
+    const after = await readdir(downloadDir);
+    const fresh = after.filter((f) => !before.has(f) && f.endsWith(ext));
+    if (fresh.length) return path.join(downloadDir, fresh[0]);
+  }
+  throw new Error(`下载未落盘：${label} (*${ext})`);
+}
+
+try {
+  console.log('1) 首屏渲染');
+  const home = await app.bodyText();
+  for (const marker of ['卡点素材与创作指令', '诱饵诊断与四拍蓝图', '续写长文与门禁精修台', '一键全自动续写']) {
+    if (!home.includes(marker)) throw new Error(`首屏缺少：${marker}`);
+  }
+  await app.screenshot('/tmp/nf_1_home.png');
+
+  console.log('2) 生成四拍蓝图');
+  await app.clickAny(['生成商业三段式细纲', '重新生成四拍蓝图']);
+  await app.waitForText('四拍续写蓝图');
+  await app.screenshot('/tmp/nf_2_blueprint.png');
+
+  console.log('3) 启动主笔续写');
+  await app.clickAny(['确认蓝图并启动主笔续写', '按当前蓝图重写正文']);
+  await app.waitForText('六道门禁', 40000);
+  await sleep(3500);
+  const written = await app.bodyText();
+  if (!written.includes('门禁 PASS') && !written.includes('按上限保留')) {
+    throw new Error('正文未产出或门禁状态缺失');
+  }
+  await app.screenshot('/tmp/nf_3_write.png');
+
+  console.log('4) 单段局部重写');
+  await app.clickAny(['局部重写']);
+  const filled = await app.fillInput(['微调要求'], '打脸再狠一点，多加两句宾客当场倒戈的对话');
+  if (filled !== 'FILLED') throw new Error('局部重写输入框不可用');
+  await app.clickAny(['执行重写']);
+  await app.waitForText('局部重写完成', 30000);
+  await app.screenshot('/tmp/nf_4_rewrite.png');
+
+  console.log('5) 架构师视图 + Agent 检视器');
+  await app.clickAny(['架构师']);
+  await app.waitForText('契约模式');
+  await app.clickAny(['卡点摄取']);
+  await app.waitForText('系统提示词');
+  await app.screenshot('/tmp/nf_5_architect.png');
+  await app.evaluate(`(() => {
+    const btn = [...document.querySelectorAll('button')].find((b) => (b.textContent || '').trim() === '关闭');
+    if (btn) btn.click();
+    return 'CLOSED';
+  })()`);
+
+  console.log('6) 门禁报告');
+  await app.clickAny(['门禁报告']);
+  await app.waitForText('六道商业门禁质检报告');
+  await app.screenshot('/tmp/nf_6_report.png');
+
+  console.log('7) 导出：Markdown / TXT / 契约 JSON');
+  const mdPath = await downloadByClick('.MD', '.md');
+  const md = await readFile(mdPath, 'utf8');
+  if (!md.includes('卡点前文（原文）') || !md.includes('六道商业门禁质检报告')) {
+    throw new Error('Markdown 缺少前文或门禁报告');
+  }
+  const txtPath = await downloadByClick('.TXT', '.txt');
+  const txt = await readFile(txtPath, 'utf8');
+  if (txt.length < 1000) throw new Error('TXT 内容过短');
+  const contractPath = await downloadByClick('契约', '.json');
+  const contract = JSON.parse(await readFile(contractPath, 'utf8'));
+  if (!contract.agent1_payload || !contract.gate_results) throw new Error('契约 JSON 缺少载荷或门禁结果');
+  console.log(`  ✓ .MD ${md.length} 字符 · .TXT ${txt.length} 字符 · 契约 JSON 含 ${contract.gate_results.length} 段`);
+
+  console.log('8) 作品草稿箱 / 快照（含自动快照）');
+  const opened = await app.evaluate(`(() => {
+    const btn = [...document.querySelectorAll('button')].find((b) => (b.title || '').includes('作品草稿箱'));
+    if (!btn) return 'NOT_FOUND';
+    btn.click();
+    return 'CLICKED';
+  })()`);
+  if (opened !== 'CLICKED') throw new Error('找不到作品草稿箱入口');
+  await app.waitForText('版本快照');
+  const drawer = await app.bodyText();
+  if (!drawer.includes('自动')) throw new Error('没有找到自动快照（重写前应自动存档）');
+  if (!drawer.includes('重写第 1 段前')) throw new Error('自动快照缺少原因标签');
+  const persistence = drawer.includes('IndexedDB 持久化')
+    ? 'indexeddb'
+    : drawer.includes('内存模式')
+      ? 'memory'
+      : 'unknown';
+  await app.clickAny(['快照当前']);
+  await app.waitForText('手动', 12000);
+  await app.screenshot('/tmp/nf_7_projects.png');
+  console.log(`  ✓ 持久化：${persistence} · 自动快照可见`);
+
+  console.log('9) 归档导出 + 导入往返');
+  const archivePath = await downloadByClick('导出全部', '.json');
+  const archive = JSON.parse(await readFile(archivePath, 'utf8'));
+  if (archive.format !== 'novelflow-archive') throw new Error('归档格式标记不正确');
+  if (archive.projects.length < 1) throw new Error('归档里没有作品');
+
+  const inputNode = await app.send('DOM.querySelector', {
+    nodeId: (await app.send('DOM.getDocument', { depth: -1 })).root.nodeId,
+    selector: 'input[type="file"][accept*="json"]',
+  });
+  if (!inputNode.nodeId) throw new Error('找不到导入归档的 file input');
+  await app.send('DOM.setFileInputFiles', { files: [archivePath], nodeId: inputNode.nodeId });
+  await app.waitForText('已导入', 20000);
+  const afterImport = await app.bodyText();
+  const count = Number((afterImport.match(/我的作品（([0-9]+)）/) || [])[1] || '0');
+  if (count < 2) throw new Error(`导入后作品数没有增加（当前 ${count}）`);
+  await app.screenshot('/tmp/nf_8_archive.png');
+  console.log(`  ✓ 归档往返成功，作品数 ${count}`);
+
+  console.log('10) 刷新页面 → 断点恢复');
+  await app.send('Page.reload', { ignoreCache: true });
+  await app.waitForText('续写长文与门禁精修台', 25000);
+  await app.waitForText('门禁 PASS', 30000);
+  const restored = await app.bodyText();
+  if (!restored.includes('3,364')) throw new Error('刷新后前文字数没恢复');
+  const restoreOpened = await app.evaluate(`(() => {
+    const btn = [...document.querySelectorAll('button')].find((b) => (b.title || '').includes('作品草稿箱'));
+    if (!btn) return 'NOT_FOUND';
+    btn.click();
+    return 'CLICKED';
+  })()`);
+  if (restoreOpened !== 'CLICKED') throw new Error('刷新后找不到草稿箱入口');
+  await app.waitForText('版本快照', 12000);
+  const afterReload = await app.bodyText();
+  const snapCount = Number((afterReload.match(/版本快照（([0-9]+)\//) || [])[1] || '0');
+  if (snapCount < 1) throw new Error('刷新后快照丢失');
+  await app.screenshot('/tmp/nf_9_reload.png');
+  console.log(`  ✓ 刷新后作品、正文、${snapCount} 个快照全部还在`);
+
+  console.log('11) 结果');
+  const stats = await app.evaluate(`(() => {
+    const text = document.body.innerText;
+    return {
+      words: (text.match(/[0-9,]+\\s*字/) || []).slice(0, 4),
+      pass: (text.match(/通过六道门禁|门禁 PASS/g) || []).length,
+      reject: (text.match(/门禁 REJECT/g) || []).length,
+      forced: (text.match(/按上限保留/g) || []).length,
+    };
+  })()`);
+  console.log('  统计：', JSON.stringify(stats));
+  if (app.consoleErrors.length) {
+    for (const e of app.consoleErrors.slice(0, 8)) console.error('   -', e.split('\n')[0]);
+    throw new Error('控制台存在 JS 错误');
+  }
+  console.log('  ✓ 无控制台错误');
+  console.log('✓ 冒烟测试通过（含四种导出与归档往返）');
+} catch (err) {
+  console.error('✗ 冒烟测试失败：', err.message);
+  try {
+    await app.screenshot('/tmp/nf_fail.png');
+    console.error('  可见文本尾部：', JSON.stringify((await app.bodyText()).slice(-280)));
+    for (const e of app.consoleErrors.slice(0, 5)) console.error('  JS 错误：', e.split('\n')[0]);
+  } catch {
+    /* ignore */
+  }
+  process.exitCode = 1;
+} finally {
+  await app.close();
+}

@@ -1,0 +1,100 @@
+@import 'tailwindcss';
+
+/*
+  Editorial Studio 设计令牌（PRD §6.1）
+  Primitive → Semantic，全部通过 Tailwind v4 @theme 暴露为工具类。
+*/
+@theme {
+  --color-paper: #faf9f6;
+  --color-paper-2: #f5f3ee;
+  --color-paper-3: #efebe3;
+  --color-ink: #1c1917;
+  --color-ink-2: #44403c;
+  --color-ink-3: #78716c;
+  --color-line: #e7e5e4;
+  --color-line-strong: #d6d3d1;
+  --color-amber-gate: #b45309;
+  --color-emerald-gate: #047857;
+
+  --font-serif: 'Songti SC', 'Source Han Serif SC', 'Noto Serif SC', Georgia, 'Times New Roman', serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui,
+    sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: #fde68a;
+    color: #1c1917;
+  }
+  /* 细窄滚动条，避免在 1366px 笔记本上抢空间 */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #d6d3d1 transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #d6d3d1;
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .nf-prose p {
+    text-indent: 2em;
+    margin-bottom: 0.85em;
+  }
+  .nf-prose mark {
+    background: #fde68a;
+    color: #451a03;
+    padding: 0 0.15em;
+    border-radius: 2px;
+    text-decoration: underline wavy #d97706;
+    text-underline-offset: 3px;
+  }
+  .nf-scroll-fade {
+    mask-image: linear-gradient(to bottom, transparent, black 8px, black calc(100% - 8px), transparent);
+  }
+}
+
+@keyframes nf-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+.nf-caret::after {
+  content: '▍';
+  margin-left: 1px;
+  color: #b45309;
+  animation: nf-blink 1s steps(2, start) infinite;
+}
+
+@keyframes nf-scroll {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-112px);
+  }
+}
