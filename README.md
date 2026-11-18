@@ -2,6 +2,12 @@
 
 商业短故事「付费卡点续写」工作台 —— 从卡点前文到可交付完结稿的多 Agent 流水线。
 
+[![Deploy demo](https://github.com/DarkHummingbird/novelflow-studio/actions/workflows/pages.yml/badge.svg)](https://github.com/DarkHummingbird/novelflow-studio/actions/workflows/pages.yml)
+[![在线预览](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E9%A2%84%E8%A7%88-darkhummingbird.github.io-0ea5e9)](https://darkhummingbird.github.io/novelflow-studio/)
+
+> **在线试用**：https://darkhummingbird.github.io/novelflow-studio/
+> （纯静态站点，无后端；所有稿件只存在你自己的浏览器里。）
+
 ![三栏工作台](docs/screenshots/01-home.png)
 
 ---
@@ -18,7 +24,8 @@
 
 | 方式 | 命令 / 操作 | 能用到什么 |
 | --- | --- | --- |
-| **A. 零安装** | 双击 `dist/novelflow-studio-standalone.html` | 全部创作流程。单文件 440 KB，无网络依赖 |
+| **0. 在线试用** | 打开 https://darkhummingbird.github.io/novelflow-studio/ | 全部创作流程（草稿箱在你自己浏览器里） |
+| **A. 零安装** | 双击 `dist/novelflow-studio-standalone.html` | 全部创作流程。单文件 450 KB，无网络依赖 |
 | **B. 完整能力（推荐）** | `npm install` → `npm run build:standalone` → `npm start`，打开 http://127.0.0.1:4173/ | 完整能力 + 草稿箱自动保存 / 版本快照回滚 |
 | **C. 开发模式** | `npm install` → `npm run dev` | 热更新，改代码调试 |
 
