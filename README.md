@@ -1,257 +1,62 @@
-# 续章工坊 · NovelFlow Studio
+# 续章工坊
 
-**商业短故事「付费卡点续写」工作台** —— 把停在付费卡点前的那段正文，续写成可交付的完结稿。
+在桌面网页上传小说滚动录屏，核对识别出的前文，查看主线、人物和当前矛盾，再生成续章。如果只有文字，也可以粘贴前文或上传 TXT。
 
-4-Agent 流水线（读前文 → 出大纲 → 写正文 → 做质检）+ 六项确定性检查：模型只负责写，结构与质检由代码判定。
-
-> 界面用词全部改成了大白话（门禁→质检、诱饵→悬念类型、四拍→分段大纲……），
-> 对照表见 [docs/GLOSSARY.md](docs/GLOSSARY.md)。
-
-[![Deploy demo](https://github.com/DarkHummingbird/novelflow-studio/actions/workflows/pages.yml/badge.svg)](https://github.com/DarkHummingbird/novelflow-studio/actions/workflows/pages.yml)
-[![在线预览](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E9%A2%84%E8%A7%88-darkhummingbird.github.io-0ea5e9)](https://darkhummingbird.github.io/novelflow-studio/)
-
-> **在线试用**：https://darkhummingbird.github.io/novelflow-studio/
-> （纯静态站点，无后端；所有稿件只存在你自己的浏览器里。）
-
-![三栏工作台](docs/screenshots/01-home.png)
-
----
-
-## 1. 这是什么
-
-> 谁会用、什么时刻用、用完得到什么 → 见 [docs/USER-SCENARIOS.md](docs/USER-SCENARIOS.md)（含场景卡片、功能映射、劝退清单）
-
-给短篇网文作者 / 推文工作室用的一条工业化流水线：把停在 30%–45% 付费卡点的那段免费前文丢进去，产出带「前 800 字正面兑现 → 二次反转 → 终局金句」商业结构的完结稿，并且**每一段都附一份可复现的质检报告**。
-
-和市面上「套个大模型提示词」的区别在于：结构判定、字数、重复率、套话、衔接、金句全部由**确定性代码**执行，模型只负责写，不负责给自己打分。
-
-## 2. 30 秒上手
-
-三种打开方式，按需要选：
-
-| 方式 | 命令 / 操作 | 能用到什么 |
-| --- | --- | --- |
-| **0. 在线试用** | 打开 https://darkhummingbird.github.io/novelflow-studio/ | 可浏览界面与一份**静态示例成品**；生成需要先配置模型（草稿箱在你自己的浏览器里） |
-| **A. 零安装** | 双击 `dist/novelflow-studio-standalone.html` | 全部创作流程。单文件 450 KB，无网络依赖 |
-| **B. 完整能力（推荐）** | `npm install` → `npm run build:standalone` → `npm start`，打开 http://127.0.0.1:4173/ | 完整能力 + 草稿箱自动保存 / 版本存档回滚 |
-| **C. 开发模式** | `npm install` → `npm run dev` | 热更新，改代码调试 |
-
-> 方式 A 直接在 `file://` 下打开时，部分浏览器会禁用 IndexedDB，草稿箱会降级为内存模式（界面会明确提示）。需要自动保存就用方式 B。
-
-**第一次使用**：左栏点「载入 3,364 字卡点样本」→ 点「生成商业三段式细纲」→ 中栏逐拍检查/修改→ 点「确认蓝图并启动主笔续写」。
-
-**没有 API Key 时不能生成正文**。产品路径下，未配置模型时续写按钮直接置灰，首页只展示一份**预先跑好的静态示例成品**（含真实的“通过/需重写”与质检报告），并引导你去配置模型。
-
-仿真引擎（模板拼装）仍然保留在代码里，但**只作为测试与结构演示夹具**，必须显式加 `?sim=1` 才会启用，普通入口不暴露——避免把模板稿误当成模型水平。
-
-## 3. 模型接入（BYOK）
-
-右上角「未配置模型 · 配置 API」→ 选厂商模板 → 填 Key → 测试连通性 → 保存。
-
-- 支持 **Google Gemini 原生协议**（真 SSE 流式）与 **OpenAI 兼容协议**（DeepSeek / 豆包 / 通义千问等）。
-- Key 默认只写 `sessionStorage`（关标签页即失效）；勾选「长期保存」才写 `localStorage`。浏览器端没有真正的密钥保护，共用电脑请勿勾选。
-- 浏览器直连第三方 API 可能被 CORS 拦。被拦时「测试连通性」会明确提示，而不是静默失败。生产环境请接 v5.0 的服务端代理。
-
-## 4. 四步真实执行链
-
-界面上的四步（括号内是代码里的 Agent 编号）：
-
-```
-前文 / 录屏文字
-   │
-   ├─ 第 1 步 · 读前文   ← 清平台噪音（正则+重复段落去重）→ 可选大模型清洗 → 数字数/选模式/取末尾 300 字 [Agent 01]
-   │
-   ├─ 按字数自动选模式   不到 2,500 字：短前文 │ 2,500–6,000：标准卡点 │ 超过 6,000：超长篇（分单元）
-   │
-   ├─ 第 2 步 · 出大纲   ← 判断悬念类型 + 人物与文风设定 + 分段大纲（大模型返回 JSON，格式不对就纠正，失败回退规则规划）[Agent 02]
-   │
-   ├─ 第 3 步 · 写正文   ← 前文记忆拼装 + 真流式输出 + 每 1,300 字自动补齐（写不够就接着写）[Agent 03]
-   │                      记忆规则：第一段且前文 ≤5,500 字，注入完整原文；否则带「设定 + 前段摘要 + 末尾 1,500 字」
-   │
-   └─ 第 4 步 · 做质检   ← 六项确定性检查（判 通过/需重写）→ 没过就带修改建议重写（有上限，不会死循环）[Agent 04]
-                          可选叠加一次大模型复审，只补建议和摘要，不能推翻代码判定的“不通过”
-```
-
-每一步给模型的指令、输出格式、这一轮的实际数据，都能在「开发视图 → 点顶部步骤」里看到。
-
-## 5. 六项检查到底怎么判
-
-| 检查项 | 判定规则（`src/lib/gates.ts`） | 不通过时的重写建议 |
-| --- | --- | --- |
-| 字数够不够 | 实际字数 ≥ 目标 × 85% | 补足动作交锋与台词 |
-| 开头有没有给结果 | 首段前 800 字内出现关键人物或第一人称主语 + 给出结果的动作，且不以回忆开场 | 直接给出结果，删铺垫 |
-| 人物和视角对不对 | 第一人称以「我」为主；第三人称以「他/她」或主角名为准；至少一个具名反派出场 | 修正视角漂移 / 让反派现身 |
-| 能不能接上上一段 | 无章节标题残留、无元叙述（续写/上文/未完待续）、不复制上文末 12 字、不以标点开头 | 删标题，首句直接接住上文 |
-| 像不像 AI 写的 | 21 条套话黑名单命中为 0，且重复用词 < 18%（短稿用 10 字滑窗，长稿用 12 字，避免短句偶然重合成误杀） | 删套话 / 换入新信息 |
-| 结尾有没有金句 | 终段末句 8–60 字、陈述句、无「未完待续」，末段 ≥ 20 字 | 以可截图的金句收尾 |
-
-**判定权在代码**：模型复审（可选）只能追加修改建议与摘要。已有单测覆盖每一条门的通过/拦截分支。
-
-## 6. 相比 v4.0 原型修了什么
-
-| 原型问题 | 现在 |
+| 入口 | 用途 |
 | --- | --- |
-| Agent 01/04 从不调用模型，只是给界面看的文案 | Agent 01 真实调用（带内容保真校验，模型压缩正文会被打回）；Agent 04 是真实执行的确定性引擎 |
-| 质检恒返回 PASS，只实现套话子串匹配 | 六条全部落成可单测的硬判定 |
-| 视频通道是 canvas 动画，上传的视频零解析 | 明确标注为「界面演示」，真实光流 OCR 划入 v5.0 |
-| 蓝图/正文兜底写死《离婚协议》，换题材会冒出旧人物 | 备用方案按输入里的人物 + 悬念类型 + 大纲模板现场生成，永不串味；示例脚本只用于静态展示 |
-| 配了 Key 反而更卡：非流式 + 无 max_tokens | 真 SSE 流式打字机、显式 max_tokens、微步长接力防截断 |
-| `bp.beat_sheet.zhuan` 缺字段直接崩 | 全链路契约归一化，缺字段补兜底，不会中断 |
-| 局部重写把「周景深」写死进任何故事 | 重写走同一套 Bible/细纲，只重写目标段 |
-| 刷新即丢，只能开一个项目 | IndexedDB 多项目自动保存 + 版本存档回滚（20 个/项目） |
-| 全篇连读标题写死样本名 | 标题取自项目名，可编辑 |
-| 输入 2,100 字却标称「4,200 字样本」 | 样本补足到 3,364 字真实卡点前文，字数口径统一为「非空白字符数」 |
-| 无任何测试 | 39 个单测 + 8 步端到端冒烟（真实点击，Chrome DevTools Protocol） |
+| [续章工坊](http://127.0.0.1:4173/) | 上传录屏、确认前文、续写、登录、订阅与充值 |
+| [管理后台](http://127.0.0.1:4173/admin) | 订阅与定价、支付订单、模型配置和用量 |
 
-## 7. 验收与测试
+详细说明见 [项目说明书](docs/项目说明书.md)、[功能文档](docs/功能文档.md) 和 [用户全流程](docs/用户全流程.md)。
+
+## 本地启动
+
+使用 Node.js 22.13+。在 macOS 上安装 Xcode Command Line Tools，以便构建使用 AVFoundation 和 Apple Vision 的录屏识别程序。
 
 ```bash
-npm run typecheck         # TS 严格模式，0 error
-npm test                  # 48 个测试（文本引擎/路由/门禁/归一化/仿真/导出/归档/API 客户端/真实模型契约/无模型门禁）
-npm run build:standalone  # 生产构建 + 单文件内联
-npm run smoke             # 标准流程冒烟：蓝图→续写→局部重写→架构师→门禁报告→四种导出→归档→刷新恢复
-npm run smoke:durability  # 持久化专项：刚改完就刷新，验证应急存档生效
-npm run smoke:longform    # 长文冒烟：>6,000 字 → Arc Unit → Markdown 导出落盘
-npm run verify            # typecheck + 单测 + 构建
+npm ci
+npm run build
+npm start
 ```
 
-（两套冒烟都需要本机 Chrome；可用 `CHROME_PATH` 指定路径。）
+服务默认监听 `127.0.0.1:4173`，通过 `PORT` 可修改端口。`NF_DB_PATH` 默认为 `data/novelflow.sqlite`。macOS 构建产出 `dist-server/ocr-video`。单独部署识别程序时，`NF_OCR_BIN` 可指定可执行文件路径。该程序接收视频本地路径，向标准输出写出按时间排序的 `[{ "at": 秒数, "lines": [{ "text": "文字", "y": 屏幕纵向归一坐标 }] }]`。
 
-冒烟测试会真的点开浏览器、走完「生成蓝图 → 续写 → 局部重写 → 架构师视图 → 门禁报告 → 草稿箱存档」，并断言：
+## 模型、登录与在线支付
 
-- 首屏三栏、按钮、状态文案齐全；
-- 续写产出且门禁状态出现；
-- 局部重写完成后日志出现「局部重写完成」；
-- Agent 检视器能打开（此步曾捕获一个 React error #310 条件 Hook 崩溃）；
-- 控制台无 JS 错误。
-
-长文冒烟另外验证：7,248 字前文被正确路由到「长篇连载滚动期」→ 蓝图出现 Arc Unit / 全账清算 → 逐单元写完并过门禁 → **不出现内置示例脚本、不出现示例人物（防串味）** → 导出的 Markdown 落盘且含门禁报告。
-
-截图在 `docs/screenshots/`。
-
-## 8. 目录结构
-
-```
-src/
-  config/   agentSpecs.ts（四段 System Prompt 与契约）、presets.ts（档位/厂商/样本）
-  lib/      text.ts（字数/清洗/诱饵/文风/实体/重复率）
-            router.ts（体量路由、三段/Arc Unit 规划、微步长）
-            gates.ts（六道门禁 + LLM 复审合并）
-            api.ts（Gemini/OpenAI，SSE 流式、重试、超时、错误映射）
-            normalize.ts（上游载荷归一化，模型说谎一律纠正）
-            pipeline.ts（Agent1→4 编排、返工循环、局部重写）
-            simulate.ts（仿真夹具，仅测试/`?sim=1`）、idb.ts（草稿箱）、export.ts（导出）
-  components/ TopBar / LeftPanel / BlueprintPanel / ReaderPanel / Modals / ui
-  hooks/    useProjectStore.ts
-tests/      core.test.ts、api.test.ts
-scripts/    inline-build.mjs（单文件内联）、serve.mjs（零依赖静态服务）、smoke.mjs（CDP 冒烟）
-docs/       PRD-TRACE.md（PRD → 代码映射）、USER-SCENARIOS.md（用户需求场景）、GLOSSARY.md（术语对照）、PITCH.md（介绍话术）、screenshots/
-```
-
-## 9. 能力边界（诚实版）
-
-**已实现**：双模输入（文本直入 + 录屏演示）、三档体量路由、六诱饵分类、Story Bible、四拍可编辑蓝图、滑动窗口撰写、微步长接力、六道确定性门禁 + 返工、单段局部重写、双视图、Agent 载荷检视、BYOK 多协议 + 连通性探测、IndexedDB 多项目 / 存档 / 回滚、Markdown / TXT / 契约 JSON 导出。**无模型时不生成正文**，只展示静态示例；仿真引擎仅作测试夹具（`?sim=1`）。
-
-**未实现（原设计在 v5.0）**：
-
-1. **真实视频 OCR**：OpenCV 光流抽帧 + PaddleOCR + LCS 拼接。当前只有确定性段落去重与界面演示。
-2. **Map-Reduce 滚动 Story Bible**：长文目前是逐段摘要 + 静态 Bible，没有伏笔 OPEN/RESOLVED 账本。
-3. **服务端代理 / 账号配额**：Key 仍在浏览器本地，生产环境需要后端。
-4. **多轮对话式改稿**：只有单段重写，没有整体对话修订。
-
-## 10. 交付物
-
-- `dist/novelflow-studio-standalone.html` —— 双击即用的完整应用（440 KB，单文件）
-- `dist/` —— 标准静态站点（`npm start` 提供）
-- 源码 + 测试 + 脚本（见上）
-- `README.md`、`docs/PRD-TRACE.md`、`docs/screenshots/`
-
-## 11. 真实模型联调
-
-### 为什么需要本地代理
-浏览器直连第三方推理 API 会被 CORS 拦（Gemini 通常可以，DeepSeek/豆包/千问基本不行）。`scripts/proxy.mjs` 把 Key 留在服务端，只把 OpenAI 兼容接口暴露给本机：
-
-```bash
-# 1) 起代理（Key 只进服务端，不进浏览器）
-NF_KEY=sk-xxx NF_UPSTREAM=https://api.deepseek.com/v1 NF_MODEL=deepseek-chat npm run proxy
-
-# 2) 产品里配置
-#    Base URL = http://127.0.0.1:8787/v1
-#    API Key  = local（占位即可，不会外发）
-```
-
-代理只做三件事：CORS、注入 `Authorization`、透传 SSE 流；不落盘、不记 Key。
-
-### 一条命令跑完整条真机链路
-```bash
-npm run smoke:real        # 自动填 BYOK → 测试连通 → Agent1/2/3 → 门禁
-```
-断言：顶部出现「真实模型」徽章、蓝图来源为「主编模型」、正文来源为「模型撰写」、门禁产出、控制台无错误。截图见 `/tmp/nf_r2_ping.png`、`/tmp/nf_r4_written.png`。
-
-### 实测记录：真实模型跑我们的契约（2026-11-19）
-
-用 harness 自带模型（DeepSeek）扮演 Agent 02 / Agent 03，**直接读取仓库里的原始 System Prompt 与 SAMPLE_TEXT**，产物固化在 `docs/evidence/real-model/`：
-
-| 项目 | 实测结果 |
+| 用途 | 配置 |
 | --- | --- |
-| Agent2 蓝图 | 合法 JSON；3 段，目标 2025 / 3000 / 2475（27/40/33）；5 个角色全部取自原文真实人名（林晚、周景深、苏念念、周老爷子、陈明远） |
-| Agent3 第 1 段 | 2,172 非空白字（目标 2,025，108.6%）；47 段 |
-| 前 800 字兑现 | 770 字内完成「公证书 → 时间戳 → 授权书」三段式打脸 |
-| 六道门禁 | **6/6 PASS，100 分**，修订指令为空 |
-| 套话 / 重复率 | 命中 0 处 / 10-gram 0.0% |
+| 续写模型 | 在后台「模型与开关」保存 DeepSeek 或 Gemini 的 API Key，添加并测试档位。也可通过 `NF_PROVIDER_KEY`、`NF_MODEL` 与 `NF_UPSTREAM` 运行兼容接口的旧配置 |
+| 管理登录 | 本机可运行 `node scripts/init-local-admin.mjs` 初始化仅密码登录，重启后读取 `data/管理员密码.txt`。TOTP 登录可设置 `NF_ADMIN_PASSWORD_HASH` 和 `NF_ADMIN_TOTP_SECRET`。密码哈希由 `node scripts/admin-password.mjs` 从标准输入生成。TOTP 使用至少 26 个随机 Base32 字符，设置为 SHA-1、6 位、30 秒 |
+| 短信网关 | `NF_SMS_WEBHOOK` 为 HTTPS 地址，`NF_SMS_WEBHOOK_TOKEN` 用于 Bearer 鉴权。服务发送 JSON `{ phone, code, expiresIn: 300 }`，网关成功时返回 2xx。本地测试可把 `NF_SMS_DEV_INBOX` 指向私有收件文件 |
+| 加密存储模型 Key | 通过本机初始化脚本启用。自行部署时设置 32 字节十六进制 `NF_SETTINGS_SECRET`。后台按厂商加密保存 Key |
+| 成本单价 | 默认环境档使用 `NF_INPUT_COST_PER_MILLION` 和 `NF_OUTPUT_COST_PER_MILLION`，单位是元/百万 tokens |
+| 在线支付 | 用 `NF_STRIPE_SECRET_KEY`、`NF_STRIPE_WEBHOOK_SECRET`、`NF_PUBLIC_ORIGIN` 启用 Stripe Checkout |
+| 订阅和充值 | 在后台「订阅与定价」设置订阅价格、有效天数和篇数，以及可售充值金额和基础单篇价格。商品价格以人民币分录入。每档余额单价在「模型与开关」用元填写 |
+| HTTPS 反代 | 上线反代需支持 SSE，使用 `NF_SECURE_COOKIE=1`。仅在本机可信反代覆盖转发头时设置 `NF_TRUST_PROXY=1` |
 
-正文开头（模型原文）：
+录屏支持 MP4、MOV 和 M4V，最长 3 分钟，最大 100 MB。服务端识别完成后删除临时录屏。用户确认前文并开始续写时，模型服务收到原样的前文，用于分析和逐段续写。TXT 导入在浏览器中读取，支持 UTF-8。
 
-> 火漆封口被我的指甲直接撕开，三份装订整齐的文件从牛皮纸袋里滑出来，摊在苏念念面前的红木茶几上。
+### 配置 DeepSeek 和 Gemini
 
-**结论**：契约不是空想出来的 schema——真实模型能一次满足它；六道门禁对真实好稿不误杀（这条比"能判 REJECT"更重要）。复跑：`npm test`（其中「真实模型产物的契约与门禁」用例）。
+1. 打开管理后台「模型与开关」，在厂商卡片粘贴并保存 Key。两家各用自己的 Key，同一家多个档位共用此 Key。
+2. 点击「查看可用模型」查询厂商目录。也可直接使用页面预设，再用档位上的「测试连通」检验该 Key 是否能调用所选型号。实际权限、用量与价格由厂商账号决定。
+3. 在「续写档位」选厂商和具体模型，填写用户看到的档位名和单篇价格。价格留空时沿用「订阅与定价」的基础单篇价格。保存后可测试、设为默认或停用。
+4. 已登录用户可选已启用且接入 Key 的档位。有可用订阅篇数时，各档统一扣 1 篇。使用余额时才按所选档位的页面报价结算。游客试写使用默认档。
 
-### 模型反馈的三处契约歧义（已处理）
+[DeepSeek 官方模型](https://api-docs.deepseek.com/quick_start/pricing/) · [Gemini 官方模型](https://aistudio.google.com/docs/models) · [Gemini API Key](https://aistudio.google.com/docs/api-key)
 
-1. **字数口径不一致**：Agent3 说"严格达到目标字数"，接力阈值 92%，门禁合格线 85%，而"字数"没有定义。→ 运行时提示词补上「非空白字符数（含标点），合格线 85%」；契约与文档口径统一。
-2. **蓝图示例与配比冲突**：PRD 示例写 `target_words: 2200`，与 27/40/33 的实际分配（2025/3000/2475）不符。→ 以 `segment_outlines` 总和为准，归一化器对偏差 >25% 才重分配；示例数字在 PRD-TRACE 里标注为示意。
-3. **「物理无缝衔接」与「前 800 字兑现」存在张力**：卡点若停在"一拍桌子 + 一句质问"，两条红线只能靠微动作折中。→ 保留张力（本次实测模型用"撕封口"解决），并在提示词里明确"禁止回忆杀开场"仅指开场，不禁止对话内倒叙。
+### 支付配置
 
-### 没有 Key 时也能验证链路
-仓库带一个只用于链路验证的桩模型（会按 Agent1/2/3 三种角色返回合法响应）：
-```bash
-npm run fake-upstream &                                    # 8799
-NF_KEY=stub NF_UPSTREAM=http://127.0.0.1:8799/v1 npm run proxy &   # 8787
-npm run smoke:real
-```
+- `NF_PUBLIC_ORIGIN` 填用户访问的站点地址。正式收款使用公开的 HTTPS 地址。Stripe 收银台付款完成后返回此站点。
+- 在 Stripe 配置 `/api/payments/stripe/webhook` 的完整 HTTPS URL，订阅 `checkout.session.completed`、`checkout.session.async_payment_succeeded`、`checkout.session.async_payment_failed` 和 `checkout.session.expired`。将对应端点的签名密钥与 API 密钥配置到同一测试或正式环境。
+- 订单使用人民币分保存金额。服务端核对签名、订单号、币种、金额和支付状态后入账。回到网站时也可向支付服务核对状态。重复通知会返回原订单结果。订阅采用一次性付款，到期可手动续购。
+- 历史已入账订单、现有篇数和余额继续保留。旧商品中符合新订阅或等额充值结构的配置会自动归类。正式商户收款未联调，退款也没有自动回收篇数或余额。正式上线前应向支付服务商确认商户可接受的付款方式，以及平台内充值余额的适用限制。
 
-### 真实模型产物的契约与门禁评分
-把真实模型的产出放到项目根目录：
-- `.real-agent2.json` —— 模型按 Agent2 契约返回的蓝图
-- `.real-agent3-1.txt` —— 模型按 Agent3 要求写的第 1 段正文
+支付接口参考 [Stripe 订单交付](https://docs.stripe.com/checkout/fulfillment?ui=full-page)、[Stripe Webhook 签名](https://docs.stripe.com/webhooks/signature)和 [Stripe 业务限制](https://stripe.com/legal/restricted-businesses)。
 
-`npm test` 会多跑一条「真实模型产物的契约与门禁」，打印六道门禁逐项 PASS/FAIL、重复率、金句抽取结果。没有这两个文件时自动跳过。
+## 检查与开发
 
-## 12. 历史记录与导出
-
-### 三层历史
-
-| 层 | 内容 | 触发 | 位置 |
-| --- | --- | --- | --- |
-| 作品库 | 前文、蓝图、全部段落、走向指令、运行日志 | **自动**保存；只要前文有实质内容就开始落盘（编辑后 800ms 防抖）。页面隐藏/刷新时还会同步写一份应急存档，防抖窗口内的改动也不丢；重启自动恢复最近作品 | 顶栏项目名 → 作品草稿箱 |
-| 版本历史 | 整份 `ProjectState` 的副本，可一键回滚 | **自动 + 手动**，每作品最多 30 个（超出淘汰最旧） | 同一抽屉右栏 |
-| 运行日志 | 各 Agent 的时间戳、动作、门禁 PASS/REJECT 原因与修订指令 | 自动，随作品与存档一起保存 | 状态条 chips / 门禁报告页底部 |
-
-**自动存档**会在这些动作之前发生（同内容不重复存）：续写前、重新推演蓝图前、重写第 N 段前。标签形如「自动 · 重写第 1 段前 · 3,422 字」，抽屉里用「自动 / 手动」徽章区分。这样手滑覆盖也能回滚。
-
-### 四种导出
-
-| 格式 | 内容 | 入口 |
-| --- | --- | --- |
-| `.MD` | 前文 + 续写正文 + 六道门禁报告（可直接发编辑） | 阅读台工具栏 `.MD` |
-| `.TXT` | 纯正文与前文，无标记 | 阅读台 `.TXT` |
-| 契约 `.JSON` | Agent1/Agent2 载荷 + 每段门禁结果 + 运行日志（架构师视图） | 阅读台「契约」 |
-| 归档 `.JSON` | **全部作品 + 全部存档**，可跨机器带走 | 草稿箱「导出全部」 |
-
-归档导入用草稿箱的「导入归档」；id 冲突时自动另存为新作品并加「（导入）」后缀，不会覆盖现有稿件。
-
-四种导出与归档往返都由 `npm run smoke` 真实点击验证（曾经只验证过 .MD，现在四种全查，且读回文件校验内容）。
-
----
-
-构建：React 19 + TypeScript 5/7 严格模式 + Vite 8 + Tailwind CSS v4 + lucide-react。无后端、无追踪、无外发请求（除你自己配置的模型 API）。
+- `npm run verify` 运行单测、类型检查与构建。
+- `npm run smoke:models` 用两个本地厂商桩和 Chrome 验证模型配置、Key 复用、订阅额度和按档位余额扣款。
+- `npm run smoke:commerce` 使用临时 SQLite、短信收件箱、模型桩和 Chrome 验证登录、支付确认、余额入账和结算。设置 `NF_TEST_RECORDING` 为本地录屏路径可同时运行实际 OCR 和前文确认流程。
+- `npm run dev` 提供前端热更新。另开进程用 `npm start` 启动 API，Vite 将 `/api` 转发到本地 4173。开发后台入口为 `/admin/`。

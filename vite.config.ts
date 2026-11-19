@@ -1,24 +1,19 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
 
-// `format: 'iife'` + inlined assets (scripts/inline-build.mjs) lets the production
-// build run straight from file:// — no dev server, no CORS on module scripts.
 export default defineConfig({
-  base: './',
-  plugins: [react(), tailwindcss()],
+  plugins: [react()],
   build: {
-    target: 'es2020',
-    cssCodeSplit: false,
-    modulePreload: false,
-    chunkSizeWarningLimit: 2000,
     rollupOptions: {
-      output: {
-        format: 'iife',
-        inlineDynamicImports: true,
-        entryFileNames: 'assets/app.js',
-        assetFileNames: 'assets/[name][extname]',
+      input: {
+        app: fileURLToPath(new URL('./index.html', import.meta.url)),
+        admin: fileURLToPath(new URL('./admin/index.html', import.meta.url)),
       },
     },
+  },
+  server: {
+    host: '127.0.0.1',
+    proxy: { '/api': 'http://127.0.0.1:4173' },
   },
 });

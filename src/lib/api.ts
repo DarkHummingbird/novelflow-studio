@@ -30,6 +30,8 @@ export interface LLMRequest {
   signal?: AbortSignal;
   onDelta?: (chunk: string) => void;
   timeoutMs?: number;
+  includeUsage?: boolean;
+  redirect?: RequestRedirect;
 }
 
 export interface LLMResponse {
@@ -70,7 +72,7 @@ function joinSignal(signal: AbortSignal | undefined, timeoutMs: number): { signa
   };
 }
 
-async function readSSE(res: Response, onData: (data: string) => 'done' | 'continue'): Promise<void> {
+export async function readSSE(res: Response, onData: (data: string) => 'done' | 'continue'): Promise<void> {
   if (!res.body) throw new LLMError('响应没有可读流（浏览器/代理可能不支持流式）', res.status, true);
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -125,6 +127,7 @@ async function callGemini(cfg: ApiConfig, req: LLMRequest): Promise<LLMResponse>
     temperature: req.temperature ?? cfg.temperature,
     maxOutputTokens: req.maxTokens ?? cfg.maxTokens,
   };
+  if (cfg.geminiThinkingLevel) generationConfig.thinkingConfig = { thinkingLevel: cfg.geminiThinkingLevel };
   if (req.json) generationConfig.responseMimeType = 'application/json';
 
   const body = {
@@ -136,6 +139,7 @@ async function callGemini(cfg: ApiConfig, req: LLMRequest): Promise<LLMResponse>
   const { signal, cleanup } = joinSignal(req.signal, req.timeoutMs ?? DEFAULT_TIMEOUT);
   try {
     const res = await fetch(url, {
+      redirect: req.redirect,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.apiKey.trim() },
       body: JSON.stringify(body),
@@ -149,12 +153,12 @@ async function callGemini(cfg: ApiConfig, req: LLMRequest): Promise<LLMResponse>
       await readSSE(res, (data) => {
         try {
           const json = JSON.parse(data) as {
-            candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-            usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+            candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>;
+            usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
           };
           for (const cand of json.candidates ?? []) {
             for (const part of cand.content?.parts ?? []) {
-              if (part.text) {
+              if (part.text && !part.thought) {
                 text += part.text;
                 req.onDelta?.(part.text);
               }
@@ -163,7 +167,8 @@ async function callGemini(cfg: ApiConfig, req: LLMRequest): Promise<LLMResponse>
           if (json.usageMetadata) {
             usage = {
               prompt_tokens: json.usageMetadata.promptTokenCount,
-              completion_tokens: json.usageMetadata.candidatesTokenCount,
+              completion_tokens: json.usageMetadata.candidatesTokenCount === undefined ? undefined
+                : json.usageMetadata.candidatesTokenCount + (json.usageMetadata.thoughtsTokenCount ?? 0),
             };
           }
         } catch {
@@ -173,16 +178,17 @@ async function callGemini(cfg: ApiConfig, req: LLMRequest): Promise<LLMResponse>
       });
     } else {
       const json = (await res.json()) as {
-        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }>;
-        usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> }; finishReason?: string }>;
+        usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
       };
       text = (json.candidates ?? [])
         .flatMap((c) => c.content?.parts ?? [])
-        .map((p) => p.text ?? '')
+        .map((p) => p.thought ? '' : p.text ?? '')
         .join('');
       usage = {
         prompt_tokens: json.usageMetadata?.promptTokenCount,
-        completion_tokens: json.usageMetadata?.candidatesTokenCount,
+        completion_tokens: json.usageMetadata?.candidatesTokenCount === undefined ? undefined
+          : json.usageMetadata.candidatesTokenCount + (json.usageMetadata.thoughtsTokenCount ?? 0),
       };
     }
     if (!text.trim()) throw new LLMError('模型返回空内容（可能触发安全策略或输出被截断）', 200, true);
@@ -196,7 +202,7 @@ async function callGemini(cfg: ApiConfig, req: LLMRequest): Promise<LLMResponse>
 
 /* ------------------------------------------------------------------ OpenAI */
 
-async function callOpenAICompatible(cfg: ApiConfig, req: LLMRequest, useMaxCompletionTokens = false): Promise<LLMResponse> {
+async function callOpenAICompatible(cfg: ApiConfig, req: LLMRequest, useMaxCompletionTokens = false, omitStreamOptions = false): Promise<LLMResponse> {
   const base = baseOf(cfg.baseUrl) || 'https://api.openai.com/v1';
   const url = base.endsWith('/chat/completions') ? base : `${base}/chat/completions`;
   const stream = Boolean(req.onDelta);
@@ -209,16 +215,19 @@ async function callOpenAICompatible(cfg: ApiConfig, req: LLMRequest, useMaxCompl
     temperature: req.temperature ?? cfg.temperature,
     stream,
   };
+  if (cfg.deepseekThinking) payload.thinking = { type: cfg.deepseekThinking };
   const maxTokens = req.maxTokens ?? cfg.maxTokens;
   if (maxTokens > 0) {
     if (useMaxCompletionTokens) payload.max_completion_tokens = maxTokens;
     else payload.max_tokens = maxTokens;
   }
+  if (stream && req.includeUsage && !omitStreamOptions) payload.stream_options = { include_usage: true };
   if (req.json) payload.response_format = { type: 'json_object' };
 
   const { signal, cleanup } = joinSignal(req.signal, req.timeoutMs ?? DEFAULT_TIMEOUT);
   try {
     const res = await fetch(url, {
+      redirect: req.redirect,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.apiKey.trim()}` },
       body: JSON.stringify(payload),
@@ -227,7 +236,10 @@ async function callOpenAICompatible(cfg: ApiConfig, req: LLMRequest, useMaxCompl
     if (!res.ok) {
       const err = await httpError(res);
       const unsupported = err.status === 400 && /max_completion_tokens|max_tokens/i.test(err.message);
-      if (unsupported && !useMaxCompletionTokens) return callOpenAICompatible(cfg, req, true);
+      if (unsupported && !useMaxCompletionTokens) return callOpenAICompatible(cfg, req, true, omitStreamOptions);
+      if (err.status === 400 && payload.stream_options && /stream_options|include_usage/i.test(err.message)) {
+        return callOpenAICompatible(cfg, req, useMaxCompletionTokens, true);
+      }
       throw err;
     }
 

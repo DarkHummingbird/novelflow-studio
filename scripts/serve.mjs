@@ -1,17 +1,15 @@
-/**
- * 零依赖静态服务器：把 dist/ 以 http 方式提供。
- * 为什么需要它：浏览器在 file:// 下会禁用 IndexedDB / localStorage，
- * 草稿箱会降级为内存模式。用 http 打开才有完整的自动保存与快照回滚。
- *
- *   npm run start            # 默认 4173
- *   PORT=8080 npm run start
- */
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { handleApi } from '../dist-server/api.js';
 
 const root = path.resolve('dist');
 const port = Number(process.env.PORT ?? 4173);
+const routes = new Map([
+  ['/', '/index.html'],
+  ['/admin', '/admin/index.html'],
+  ['/admin/', '/admin/index.html'],
+]);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -27,9 +25,12 @@ const MIME = {
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? '/', 'http://127.0.0.1');
-    const rel = decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname);
+    const pathname = decodeURIComponent(url.pathname);
+    if (pathname.startsWith('/api/')) return await handleApi(req, res, pathname);
+    const rel = routes.get(pathname) ?? pathname;
     const file = path.resolve(root, `.${rel}`);
-    if (!file.startsWith(root)) {
+    const relative = path.relative(root, file);
+    if (relative === '..' || relative.startsWith('..' + path.sep)) {
       res.writeHead(403).end('Forbidden');
       return;
     }
@@ -39,17 +40,20 @@ const server = createServer(async (req, res) => {
       return;
     }
     const data = await readFile(file);
+    if (rel.endsWith('.html')) res.setHeader('Content-Security-Policy', "default-src 'self'; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     res.writeHead(200, {
       'Content-Type': MIME[path.extname(file)] ?? 'application/octet-stream',
       'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
     });
     res.end(data);
-  } catch (err) {
-    res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' }).end(String(err));
+  } catch {
+    if (!res.headersSent) res.writeHead(500);
+    res.end();
   }
 });
 
 server.listen(port, '127.0.0.1', () => {
-  console.log(`NovelFlow Studio → http://127.0.0.1:${port}/`);
-  console.log('（按 Ctrl+C 退出；此模式下草稿箱使用 IndexedDB，可自动保存与回滚）');
+  console.log(`续章工坊 → http://127.0.0.1:${server.address().port}/`);
+  console.log(`管理后台 → http://127.0.0.1:${server.address().port}/admin`);
 });

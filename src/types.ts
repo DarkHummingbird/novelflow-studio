@@ -19,6 +19,8 @@ export interface ApiConfig {
   apiKey: string;
   temperature: number;
   maxTokens: number;
+  deepseekThinking?: 'disabled';
+  geminiThinkingLevel?: 'LOW';
   /** true=localStorage（跨会话保留）；false=sessionStorage（关闭标签页即失效） */
   persistKey: boolean;
 }

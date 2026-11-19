@@ -3,22 +3,16 @@
   "private": true,
   "version": "4.0.0",
   "type": "module",
-  "description": "NovelFlow Studio — 商业短故事付费卡点续写工作台",
+  "description": "续章工坊 · 上传小说录屏并续写",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "build:standalone": "npm run build && node scripts/inline-build.mjs",
-    "start": "node scripts/serve.mjs",
-    "preview": "vite preview --port 4173",
+    "build": "tsc --noEmit && vite build && node scripts/build-server.mjs",
+    "start": "node --env-file-if-exists=data/admin.local.env scripts/serve.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "smoke": "node scripts/smoke.mjs",
-    "verify": "npm run typecheck && npm test && npm run build:standalone",
-    "smoke:longform": "node scripts/smoke-longform.mjs",
-    "proxy": "node scripts/proxy.mjs",
-    "smoke:real": "node scripts/smoke-real.mjs",
-    "fake-upstream": "node scripts/lib/fake-upstream.mjs",
-    "smoke:durability": "node scripts/smoke-durability.mjs"
+    "verify": "npm test && npm run build",
+    "smoke:commerce": "node scripts/smoke-commerce.mjs",
+    "smoke:models": "node scripts/smoke-models.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.75.0",

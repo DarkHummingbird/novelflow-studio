@@ -59,7 +59,7 @@ try {
 
   console.log('4) Agent 01 + 02（真实 JSON 往返）');
   await app.clickAny(['生成分段大纲', '重新生成大纲']);
-  await app.waitForText('分段大纲', 90000);
+  await app.waitForText('分段大纲已生成', 90000);
   const blueprint = await app.bodyText();
   if (!blueprint.includes('主编模型')) throw new Error('蓝图不是来自模型（判定来源应为主编模型）');
   await app.screenshot('/tmp/nf_r3_blueprint.png');
